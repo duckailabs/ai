@@ -1,6 +1,8 @@
 import { LintResult, ParsedTemplate } from "./types";
 export class Linter {
-  async lint(template: ParsedTemplate): Promise<LintResult[]> {
+  constructor(private context: Record<string, any> = {}) {}
+
+  lint(template: ParsedTemplate): LintResult[] {
     const results: LintResult[] = [];
 
     // Check system prompt
@@ -16,26 +18,21 @@ export class Linter {
       });
     }
 
-    // Check undefined variables
-    const definedVars = new Set();
-    template.blocks.forEach((block) => {
-      if (block.variables) {
-        Object.keys(block.variables).forEach((v) => definedVars.add(v));
-      }
-    });
+    // Check for undefined variables by comparing against context
+    const missingVariables = template.variables.filter(
+      (variable) => !(variable in this.context)
+    );
 
-    // Find any undefined variables
-    template.variables.forEach((variable) => {
-      if (!definedVars.has(variable)) {
-        const line = this.findVariableLocation(variable, template.raw);
-        results.push({
-          message: `Variable "${variable}" is used but not defined`,
-          severity: "error",
-          line,
-          column: 1,
-        });
-      }
-    });
+    if (missingVariables.length > 0) {
+      results.push({
+        message: `Required variables not provided: ${missingVariables.join(
+          ", "
+        )}`,
+        severity: "error",
+        line: 1,
+        column: 1,
+      });
+    }
 
     return results;
   }

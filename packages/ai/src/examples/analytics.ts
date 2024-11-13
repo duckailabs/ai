@@ -16,11 +16,13 @@ What are the key trends?</user>`;
   const formattedData = metrics
     .map((row) => `${row.date}: ${row.metric} = ${row.value}`)
     .join("\n");
-
-  const builder = new PromptBuilder(template).withContext({
-    data: formattedData,
-  });
-
+  console.log("before");
+  const builder = new PromptBuilder(template, {
+    allowEmptyContent: true,
+  }).withContext({ data: formattedData });
+  const validation = await builder.validate();
+  console.log("validation", validation);
   const messages = await builder.build();
+  console.log("here");
   console.log(JSON.stringify(messages, null, 2));
 }

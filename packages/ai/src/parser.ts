@@ -8,40 +8,34 @@ export class Parser {
 
     const blocks: Block[] = [];
     const variables = new Set<string>();
-    const variableLocations = new Map<string, number[]>();
-    const blockCount: Record<Role, number> = {
-      system: 0,
-      user: 0,
-      assistant: 0,
-    };
 
-    // Enhanced regex for more precise matching
+    // Match all <variable> tags including closing tags like </system>
+    const variableRegex = /<([^>]+)>/g;
+    const systemTags = new Set([
+      "system",
+      "user",
+      "assistant",
+      "/system",
+      "/user",
+      "/assistant",
+    ]);
+
+    // Parse blocks first
     const blockRegex =
       /<(system|user|assistant)(?:\s+name="([^"]*)")?>([^]*?)<\/\1>/g;
-    const variableRegex =
-      /<([^\/>\s]+)(?:\s+[^>]*)?>(?![^<]*<\/(?:system|user|assistant)>)/g;
-
-    // Track current position for better error reporting
-    let currentPos = 0;
     let match;
 
-    // Parse blocks with error handling
     while ((match = blockRegex.exec(template)) !== null) {
       const [fullMatch, role, name, content] = match;
 
-      // Validate content
-      if (!content.trim()) {
-        throw new Error(
-          `Empty content in ${role} block at position ${match.index}`
-        );
-      }
-
-      // Check for malformed tags
-      if (template.slice(currentPos, match.index).includes("<")) {
-        const badTagPos = template
-          .slice(currentPos, match.index)
-          .lastIndexOf("<");
-        throw new Error(`Malformed tag at position ${currentPos + badTagPos}`);
+      // Find variables in this block's content
+      let varMatch;
+      while ((varMatch = variableRegex.exec(content)) !== null) {
+        const varName = varMatch[1];
+        // Only add if it's not a system tag
+        if (!systemTags.has(varName)) {
+          variables.add(varName);
+        }
       }
 
       blocks.push({
@@ -53,27 +47,6 @@ export class Parser {
           end: match.index + fullMatch.length,
         },
       });
-
-      blockCount[role as Role]++;
-      currentPos = match.index + fullMatch.length;
-    }
-
-    // Check for unclosed tags
-    if (template.slice(currentPos).includes("<")) {
-      throw new Error("Unclosed tag detected at end of template");
-    }
-
-    // Parse variables with location tracking
-    let varMatch;
-    while ((varMatch = variableRegex.exec(template)) !== null) {
-      const varName = varMatch[1];
-      if (!["system", "user", "assistant"].includes(varName)) {
-        variables.add(varName);
-
-        const locations = variableLocations.get(varName) || [];
-        locations.push(varMatch.index);
-        variableLocations.set(varName, locations);
-      }
     }
 
     return {
