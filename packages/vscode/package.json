@@ -1,0 +1,142 @@
+{
+  "name": "@fatduckai/vscode",
+  "private": true,
+  "displayName": "Ducks in a Row",
+  "description": "Language support for Prompt Engineering",
+  "version": "1.0.0",
+  "publisher": "fatduckai",
+  "engines": {
+    "vscode": "^1.86.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Formatters"
+  ],
+  "configurations": [
+    {
+      "name": "Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/dist/**/*.js"
+      ],
+      "preLaunchTask": "npm: build"
+    }
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "ai",
+        "aliases": [
+          "FatduckAI",
+          "ai"
+        ],
+        "extensions": [
+          ".pg",
+          ".prompt"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "ducksinarow",
+        "scopeName": "source.ducksinarow",
+        "path": "./syntaxes/ducksinarow.tmLanguage.json"
+      }
+    ],
+    "colors": [
+      {
+        "id": "ducksinarow.block",
+        "description": "Color for block tags",
+        "defaults": {
+          "dark": "#569CD6",
+          "light": "#0000FF",
+          "highContrast": "#569CD6"
+        }
+      },
+      {
+        "id": "ducksinarow.variable",
+        "description": "Color for variables",
+        "defaults": {
+          "dark": "#9CDCFE",
+          "light": "#001080",
+          "highContrast": "#9CDCFE"
+        }
+      },
+      {
+        "id": "ducksinarow.gen",
+        "description": "Color for gen blocks",
+        "defaults": {
+          "dark": "#4EC9B0",
+          "light": "#267F99",
+          "highContrast": "#4EC9B0"
+        }
+      },
+      {
+        "id": "ducksinarow.systemBackground",
+        "description": "Background color for system blocks",
+        "defaults": {
+          "dark": "#1E1E1E",
+          "light": "#F8F8F8",
+          "highContrast": "#000000"
+        }
+      }
+    ],
+    "commands": [
+      {
+        "command": "ducksinarow.format",
+        "title": "Format Prompt Template"
+      },
+      {
+        "command": "ducksinarow.analyze",
+        "title": "Analyze Prompt Template"
+      },
+      {
+        "command": "ducksinarow.previewTemplate",
+        "title": "Preview Prompt Template"
+      }
+    ],
+    "configuration": {
+      "title": "Ducks in a Row",
+      "properties": {
+        "ducksinarow.openaiApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "OpenAI API Key for AI-powered suggestions"
+        },
+        "ducksinarow.enableLiveAnalysis": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable real-time analysis and suggestions"
+        },
+        "ducksinarow.formatOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically format templates on save"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "bun build ./src/extension.ts --outdir ./dist --target node --external vscode",
+    "watch": "bun build ./src/extension.ts --outdir ./dist --target node --external vscode --watch",
+    "package": "vsce package --no-dependencies",
+    "vscode:prepublish": "bun run build"
+  },
+  "dependencies": {
+    "@fatduckai/ai": "workspace:*",
+    "vscode": "^1.1.37"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.86.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "@vscode/vsce": "^2.24.0"
+  }
+}

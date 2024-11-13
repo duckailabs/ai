@@ -1,0 +1,7 @@
+src/
+tests/
+*.test.ts
+.turbo
+tsconfig.json
+.eslintrc
+biome.json

@@ -1,0 +1,35 @@
+{
+  "name": "fatduckai",
+  "devDependencies": {
+    "@biomejs/biome": "1.5.3",
+    "@changesets/cli": "^2.27.9",
+    "@vscode/vsce": "^2.24.0",
+    "bun-types": "latest",
+    "typescript": "^5.3.3"
+  },
+  "private": true,
+  "scripts": {
+    "build": "bun run build:ai && bun run build:vscode",
+    "build:ai": "cd packages/ai && bun run build",
+    "build:vscode": "cd packages/vscode && bun run build",
+    "dev": "cd packages/playground && bun run dev",
+    "test": "bun test",
+    "lint": "bunx @biomejs/biome check .",
+    "vscode:install": "cd packages/vscode && bun install",
+    "setup": "bun install && bun run setup:all",
+    "setup:all": "bun run setup:ai && bun run setup:vscode && bun run setup:playground",
+    "setup:ai": "cd packages/ai && bun install",
+    "setup:vscode": "cd packages/vscode && bun install",
+    "setup:playground": "cd packages/playground && bun install",
+    "publish:ai": "cd packages/ai && bun run build && bun run npm publish",
+    "release:major": "bun scripts/release.ts major",
+    "release:minor": "bun scripts/release.ts minor",
+    "release:patch": "bun scripts/release.ts patch",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "publish-packages": "bun run build && changeset publish"
+  },
+  "workspaces": [
+    "packages/*"
+  ]
+}
