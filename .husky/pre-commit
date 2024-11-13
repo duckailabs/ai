@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Check if there are any .changeset files
+if [ -z "$(ls .changeset/*.md 2>/dev/null)" ] && [ -z "$SKIP_CHANGESET_CHECK" ]; then
+    echo "Error: No changeset found. Please run 'npx changeset' before committing."
+    exit 1
+fi

@@ -5,10 +5,12 @@
     "@changesets/cli": "^2.27.9",
     "@vscode/vsce": "^2.24.0",
     "bun-types": "latest",
+    "husky": "^9.1.6",
     "typescript": "^5.3.3"
   },
   "private": true,
   "scripts": {
+    "prepare": "husky install",
     "build": "bun run build:ai",
     "build:ai": "cd packages/ai && bun run build",
     "build:vscode": "cd packages/vscode && bun run build",
