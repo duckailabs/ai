@@ -15,6 +15,8 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 jobs:
   release:
     name: Release
+    env:
+      HUSKY: 0
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo

@@ -1,7 +1,8 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
-# Check if there are any .changeset files
-if [ -z "$(ls .changeset/*.md 2>/dev/null)" ] && [ -z "$SKIP_CHANGESET_CHECK" ]; then
-    echo "Error: No changeset found. Please run 'npx changeset' before committing."
-    exit 1
+# Only run if not in CI
+if [ -z "$CI" ]; then
+  npx changeset status --since=origin/master && exit 0
+  echo "No changeset found. Please run 'npx changeset' to create one."
+  exit 1
 fi
