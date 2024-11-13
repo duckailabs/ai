@@ -1,5 +1,11 @@
 # @fatduckai/ai
 
+## 0.3.2
+
+### Patch Changes
+
+- 91e5b85: fixed bugs in builder and removed async
+
 ## 0.3.1
 
 ### Patch Changes
