@@ -7,12 +7,14 @@ export interface ChatMessage {
 }
 
 export interface Block {
-  type: Role | "text";
+  type: Role;
   content: string;
-  children?: Block[];
-  variables?: Record<string, string>;
-  range?: { start: number; end: number };
   name?: string;
+  variables?: Record<string, string>; // Was expecting a Record, not an array
+  range: {
+    start: number;
+    end: number;
+  };
 }
 
 export interface ParsedTemplate {

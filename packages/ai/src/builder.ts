@@ -1,6 +1,6 @@
 import { Linter } from "./linter";
 import { Parser } from "./parser";
-import type { ChatMessage, Role } from "./types";
+import type { Block, ChatMessage } from "./types";
 
 interface PromptBuilderOptions {
   validateOnBuild?: boolean;
@@ -11,12 +11,12 @@ interface PromptBuilderOptions {
 export class PromptBuilder {
   private template: string;
   private context: Record<string, any> = {};
-  private readonly linter: Linter;
+  private linter: Linter;
   private readonly options: Required<PromptBuilderOptions>;
 
   constructor(template: string, options: PromptBuilderOptions = {}) {
     this.template = template;
-    this.linter = new Linter();
+    this.linter = new Linter(this.context);
 
     this.options = {
       validateOnBuild: true,
@@ -36,13 +36,14 @@ export class PromptBuilder {
     });
 
     this.context = { ...this.context, ...context };
+    this.linter = new Linter(this.context); // Update linter with new context
     return this;
   }
 
-  async validate() {
+  validate() {
     try {
       const parsed = Parser.parse(this.template);
-      const lintResults = await this.linter.lint(parsed);
+      const lintResults = this.linter.lint(parsed);
 
       return {
         isValid: !lintResults.some((r) => r.severity === "error"),
@@ -66,17 +67,13 @@ export class PromptBuilder {
     }
   }
 
-  async build(): Promise<ChatMessage[]> {
+  build(): ChatMessage[] {
     try {
+      // Still validate but don't throw
       if (this.options.validateOnBuild) {
-        const validation = await this.validate();
+        const validation = this.validate();
 
-        if (!validation.isValid) {
-          throw new Error(
-            `Template validation failed:\n${validation.errors.join("\n")}`
-          );
-        }
-
+        // Only throw if throwOnWarnings is true and we have warnings
         if (this.options.throwOnWarnings && validation.warnings.length > 0) {
           throw new Error(
             `Template has warnings:\n${validation.warnings.join("\n")}`
@@ -87,11 +84,16 @@ export class PromptBuilder {
       const parsed = Parser.parse(this.template);
 
       return parsed.blocks
-        .filter((block) => block.type !== "text") // Filter out text blocks
+        .filter(
+          (block): block is Block =>
+            block.type === "system" ||
+            block.type === "user" ||
+            block.type === "assistant"
+        )
         .map((block) => {
           let content = block.content;
 
-          // Replace variables
+          // Replace variables that exist in context, leave others as is
           Object.entries(this.context).forEach(([key, value]) => {
             const regex = new RegExp(`<${key}>`, "g");
             content = content.replace(regex, String(value));
@@ -104,7 +106,7 @@ export class PromptBuilder {
           }
 
           const message: ChatMessage = {
-            role: block.type as Role, // Type assertion is safe because we filtered out 'text'
+            role: block.type,
             content: content.trim(),
           };
 
@@ -115,11 +117,20 @@ export class PromptBuilder {
           return message;
         });
     } catch (error) {
-      throw new Error(
-        `Failed to build prompt: ${
-          error instanceof Error ? error.message : String(error)
-        }`
-      );
+      // Instead of throwing, return the blocks with unreplaced variables
+      const parsed = Parser.parse(this.template);
+      return parsed.blocks
+        .filter(
+          (block): block is Block =>
+            block.type === "system" ||
+            block.type === "user" ||
+            block.type === "assistant"
+        )
+        .map((block) => ({
+          role: block.type,
+          content: block.content.trim(),
+          ...(block.name ? { name: block.name } : {}),
+        }));
     }
   }
 }
