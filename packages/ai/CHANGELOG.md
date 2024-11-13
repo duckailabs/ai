@@ -1,5 +1,11 @@
 # @fatduckai/ai
 
+## 0.3.3
+
+### Patch Changes
+
+- 1b9d035: fixed empty content bug
+
 ## 0.3.2
 
 ### Patch Changes
