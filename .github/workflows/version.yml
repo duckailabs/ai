@@ -23,7 +23,7 @@ jobs:
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
 
       - name: Version Package
-        working-directory: packages/core
+        working-directory: packages/ai
         run: |
           # Extract version from package.json
           VERSION=$(node -p "require('./package.json').version")
