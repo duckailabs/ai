@@ -1,5 +1,12 @@
 # Change Log
 
+## 1.0.5
+
+### Patch Changes
+
+- Updated dependencies [1b9d035]
+  - @fatduckai/ai@0.3.3
+
 ## 1.0.4
 
 ### Patch Changes
