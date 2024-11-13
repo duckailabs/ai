@@ -9,7 +9,7 @@
   },
   "private": true,
   "scripts": {
-    "build": "bun run build:ai && bun run build:vscode",
+    "build": "bun run build:ai",
     "build:ai": "cd packages/ai && bun run build",
     "build:vscode": "cd packages/vscode && bun run build",
     "dev": "cd packages/playground && bun run dev",
