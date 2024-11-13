@@ -1,5 +1,12 @@
 # @fatduckai/ai
 
+## 0.3.1
+
+### Patch Changes
+
+- fcf36ca: update readme
+- bcb62f2: updated readme
+
 ## 0.3.0
 
 ### Minor Changes
