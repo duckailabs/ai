@@ -3,7 +3,7 @@
   "private": true,
   "displayName": "Ducks in a Row",
   "description": "Language support for Prompt Engineering",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "fatduckai",
   "engines": {
     "vscode": "^1.86.0"
