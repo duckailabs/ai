@@ -18,8 +18,8 @@ What are the key trends?</user>`;
     .join("\n");
   console.log("before");
   const builder = new PromptBuilder(template, {
-    allowEmptyContent: true,
-  }).withContext({ data: formattedData });
+    allowEmptyContent: false,
+  }).withContext({ data: null });
   const validation = await builder.validate();
   console.log("validation", validation);
   const messages = await builder.build();
