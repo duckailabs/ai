@@ -27,7 +27,8 @@
     "release:patch": "bun scripts/release.ts patch",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "publish-packages": "bun run build && changeset publish"
+    "publish-packages": "bun run build && changeset publish",
+    "release": "changeset publish"
   },
   "workspaces": [
     "packages/*"
