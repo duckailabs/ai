@@ -1,5 +1,11 @@
 # @fatduckai/ai
 
+## 0.3.0
+
+### Minor Changes
+
+- dad83c2: Working more clear and updated readme
+
 ## 0.2.0
 
 ### Minor Changes
