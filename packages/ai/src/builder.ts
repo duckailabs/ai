@@ -16,7 +16,7 @@ export class PromptBuilder {
 
   constructor(template: string, options: PromptBuilderOptions = {}) {
     this.template = template;
-    this.linter = new Linter(this.context);
+    this.linter = new Linter();
 
     this.options = {
       validateOnBuild: true,
@@ -27,16 +27,23 @@ export class PromptBuilder {
   }
 
   withContext(context: Record<string, any>): this {
-    Object.entries(context).forEach(([key, value]) => {
-      if (value === undefined || value === null) {
-        throw new Error(
-          `Context value for "${key}" cannot be undefined or null`
-        );
-      }
-    });
+    // Don't validate values if allowEmptyContent is true
+    if (!this.options.allowEmptyContent) {
+      Object.entries(context).forEach(([key, value]) => {
+        if (
+          value === undefined ||
+          value === null ||
+          value.toString().trim() === ""
+        ) {
+          throw new Error(
+            `Empty content not allowed for "${key}". Set allowEmptyContent to true to allow empty, null, or undefined values.`
+          );
+        }
+      });
+    }
 
     this.context = { ...this.context, ...context };
-    this.linter = new Linter(this.context); // Update linter with new context
+    this.linter = new Linter(this.context, this.options.allowEmptyContent);
     return this;
   }
 
@@ -69,11 +76,13 @@ export class PromptBuilder {
 
   build(): ChatMessage[] {
     try {
-      // Still validate but don't throw
       if (this.options.validateOnBuild) {
         const validation = this.validate();
-
-        // Only throw if throwOnWarnings is true and we have warnings
+        if (!validation.isValid) {
+          throw new Error(
+            `Template validation failed:\n${validation.errors.join("\n")}`
+          );
+        }
         if (this.options.throwOnWarnings && validation.warnings.length > 0) {
           throw new Error(
             `Template has warnings:\n${validation.warnings.join("\n")}`
@@ -93,10 +102,12 @@ export class PromptBuilder {
         .map((block) => {
           let content = block.content;
 
-          // Replace variables that exist in context, leave others as is
+          // Replace variables, converting undefined/null to empty string if allowEmptyContent is true
           Object.entries(this.context).forEach(([key, value]) => {
             const regex = new RegExp(`<${key}>`, "g");
-            content = content.replace(regex, String(value));
+            const replacement =
+              value === undefined || value === null ? "" : String(value);
+            content = content.replace(regex, replacement);
           });
 
           if (!content.trim() && !this.options.allowEmptyContent) {
@@ -117,20 +128,11 @@ export class PromptBuilder {
           return message;
         });
     } catch (error) {
-      // Instead of throwing, return the blocks with unreplaced variables
-      const parsed = Parser.parse(this.template);
-      return parsed.blocks
-        .filter(
-          (block): block is Block =>
-            block.type === "system" ||
-            block.type === "user" ||
-            block.type === "assistant"
-        )
-        .map((block) => ({
-          role: block.type,
-          content: block.content.trim(),
-          ...(block.name ? { name: block.name } : {}),
-        }));
+      throw new Error(
+        `Failed to build prompt: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
     }
   }
 }

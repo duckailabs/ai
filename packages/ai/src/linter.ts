@@ -1,6 +1,9 @@
 import { LintResult, ParsedTemplate } from "./types";
 export class Linter {
-  constructor(private context: Record<string, any> = {}) {}
+  constructor(
+    private context: Record<string, any> = {},
+    private allowEmptyContent: boolean = false
+  ) {}
 
   lint(template: ParsedTemplate): LintResult[] {
     const results: LintResult[] = [];
@@ -18,21 +21,31 @@ export class Linter {
       });
     }
 
-    // Check for undefined variables by comparing against context
-    const missingVariables = template.variables.filter(
-      (variable) => !(variable in this.context)
-    );
-
-    if (missingVariables.length > 0) {
-      results.push({
-        message: `Required variables not provided: ${missingVariables.join(
-          ", "
-        )}`,
-        severity: "error",
-        line: 1,
-        column: 1,
-      });
-    }
+    // Check variables
+    template.variables.forEach((variable) => {
+      if (!(variable in this.context)) {
+        results.push({
+          message: `Required variable not provided: ${variable}`,
+          severity: "error",
+          line: this.findVariableLocation(variable, template.raw),
+          column: 1,
+        });
+      } else if (!this.allowEmptyContent) {
+        const value = this.context[variable];
+        if (
+          value === undefined ||
+          value === null ||
+          value.toString().trim() === ""
+        ) {
+          results.push({
+            message: `Empty content not allowed for variable: ${variable}`,
+            severity: "error",
+            line: this.findVariableLocation(variable, template.raw),
+            column: 1,
+          });
+        }
+      }
+    });
 
     return results;
   }
