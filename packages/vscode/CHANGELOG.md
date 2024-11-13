@@ -1,5 +1,12 @@
 # Change Log
 
+## 1.0.2
+
+### Patch Changes
+
+- Updated dependencies [dad83c2]
+  - @fatduckai/ai@0.3.0
+
 ## 1.0.1
 
 ### Patch Changes
