@@ -1,13 +1,13 @@
 import { Linter, Parser } from "./src/index";
 
 async function main() {
-  const template = `{{#system}}
+  const template = `<system>
 You are a helpful AI assistant.
-{{/system}}
+</system>
 
-{{#user}}
+<user>
 Help me with {{task}}
-{{/user}}`;
+</user>`;
 
   // Test parsing
   const parsed = Parser.parse(template);

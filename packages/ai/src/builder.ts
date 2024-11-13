@@ -1,85 +1,119 @@
 import { Linter } from "./linter";
 import { Parser } from "./parser";
+import type { ChatMessage, Role } from "./types";
 
 interface PromptBuilderOptions {
   validateOnBuild?: boolean;
   throwOnWarnings?: boolean;
+  allowEmptyContent?: boolean;
 }
 
 export class PromptBuilder {
   private template: string;
   private context: Record<string, any> = {};
-  private linter: Linter;
-  private options: PromptBuilderOptions;
+  private readonly linter: Linter;
+  private readonly options: Required<PromptBuilderOptions>;
 
   constructor(template: string, options: PromptBuilderOptions = {}) {
     this.template = template;
     this.linter = new Linter();
+
     this.options = {
       validateOnBuild: true,
       throwOnWarnings: false,
+      allowEmptyContent: false,
       ...options,
     };
   }
 
   withContext(context: Record<string, any>): this {
+    Object.entries(context).forEach(([key, value]) => {
+      if (value === undefined || value === null) {
+        throw new Error(
+          `Context value for "${key}" cannot be undefined or null`
+        );
+      }
+    });
+
     this.context = { ...this.context, ...context };
     return this;
   }
 
-  async validate(): Promise<{
-    isValid: boolean;
-    errors: string[];
-    warnings: string[];
-  }> {
+  async validate() {
     try {
       const parsed = Parser.parse(this.template);
       const lintResults = await this.linter.lint(parsed);
 
       return {
-        isValid: !lintResults.some((result) => result.severity === "error"),
+        isValid: !lintResults.some((r) => r.severity === "error"),
         errors: lintResults
           .filter((r) => r.severity === "error")
           .map((e) => `Line ${e.line}: ${e.message}`),
         warnings: lintResults
           .filter((r) => r.severity === "warning")
           .map((w) => `Line ${w.line}: ${w.message}`),
+        info: lintResults
+          .filter((r) => r.severity === "info")
+          .map((i) => `Line ${i.line}: ${i.message}`),
       };
     } catch (error) {
       return {
         isValid: false,
         errors: [error instanceof Error ? error.message : String(error)],
         warnings: [],
+        info: [],
       };
     }
   }
 
-  async build(): Promise<string> {
+  async build(): Promise<ChatMessage[]> {
     try {
       if (this.options.validateOnBuild) {
-        const { isValid, errors, warnings } = await this.validate();
+        const validation = await this.validate();
 
-        if (!isValid) {
-          throw new Error(`Template validation failed:\n${errors.join("\n")}`);
+        if (!validation.isValid) {
+          throw new Error(
+            `Template validation failed:\n${validation.errors.join("\n")}`
+          );
         }
 
-        if (this.options.throwOnWarnings && warnings.length > 0) {
-          throw new Error(`Template has warnings:\n${warnings.join("\n")}`);
-        }
-
-        if (warnings.length > 0) {
-          console.warn("Template warnings:\n", warnings.join("\n"));
+        if (this.options.throwOnWarnings && validation.warnings.length > 0) {
+          throw new Error(
+            `Template has warnings:\n${validation.warnings.join("\n")}`
+          );
         }
       }
 
-      // Replace variables
-      let result = this.template;
-      Object.entries(this.context).forEach(([key, value]) => {
-        const regex = new RegExp(`<${key}>`, "g");
-        result = result.replace(regex, value?.toString() ?? "");
-      });
+      const parsed = Parser.parse(this.template);
 
-      return result;
+      return parsed.blocks
+        .filter((block) => block.type !== "text") // Filter out text blocks
+        .map((block) => {
+          let content = block.content;
+
+          // Replace variables
+          Object.entries(this.context).forEach(([key, value]) => {
+            const regex = new RegExp(`<${key}>`, "g");
+            content = content.replace(regex, String(value));
+          });
+
+          if (!content.trim() && !this.options.allowEmptyContent) {
+            throw new Error(
+              `Empty content in ${block.type} block after variable replacement`
+            );
+          }
+
+          const message: ChatMessage = {
+            role: block.type as Role, // Type assertion is safe because we filtered out 'text'
+            content: content.trim(),
+          };
+
+          if (block.name) {
+            message.name = block.name;
+          }
+
+          return message;
+        });
     } catch (error) {
       throw new Error(
         `Failed to build prompt: ${
@@ -87,12 +121,5 @@ export class PromptBuilder {
         }`
       );
     }
-  }
-
-  // Static helper method for quick template validation
-  static async validateTemplate(template: string): Promise<boolean> {
-    const builder = new PromptBuilder(template);
-    const { isValid } = await builder.validate();
-    return isValid;
   }
 }
