@@ -1,10 +1,8 @@
-# FatduckAI AI Repo
+# @fatduckai/ai
 
 ![duck_banner](https://github.com/user-attachments/assets/33c039c6-bd6a-436f-952e-fbc88ae07c50)
 
-# @fatduckai/ai
-
-A lightweight and efficient prompt builder for LLM chat completions.
+_A lightweight and efficient prompt builder for LLM chat completions._
 
 ## Features
 
