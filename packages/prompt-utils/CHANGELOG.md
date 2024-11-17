@@ -1,4 +1,4 @@
-# @fatduckai/ai
+# @fatduckai/prompt-utils
 
 ## 0.3.3
 

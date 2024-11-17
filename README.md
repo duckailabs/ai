@@ -1,4 +1,4 @@
-# @fatduckai/ai
+# @fatduckai/prompt-utils
 
 ![duck_banner](https://github.com/user-attachments/assets/33c039c6-bd6a-436f-952e-fbc88ae07c50)
 
@@ -14,17 +14,17 @@ _A lightweight and efficient prompt builder for LLM chat completions._
 ## Installation
 
 ```bash
-npm install @fatduckai/ai
+npm install @fatduckai/prompt-utils
 # or
-yarn add @fatduckai/ai
+yarn add @fatduckai/prompt-utils
 # or
-bun add @fatduckai/ai
+bun add @fatduckai/prompt-utils
 ```
 
 ## Quick Start
 
 ```typescript
-import { PromptBuilder } from "@fatduckai/ai";
+import { PromptBuilder } from "@fatduckai/prompt-utils";
 import OpenAI from "openai";
 
 async function main() {
@@ -139,4 +139,4 @@ FatDuckAI
 
 ## Support
 
-- Issues: [GitHub Issues](https://github.com/fatduckai/ai/issues)
+- Issues: [GitHub Issues](https://github.com/fatduckai/prompt-utils/issues)

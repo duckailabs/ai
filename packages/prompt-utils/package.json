@@ -1,5 +1,5 @@
 {
-  "name": "@fatduckai/ai",
+  "name": "@fatduckai/prompt-utils",
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/",

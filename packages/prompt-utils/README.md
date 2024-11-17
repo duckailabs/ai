@@ -1,4 +1,4 @@
-# @fatduckai/ai
+# @fatduckai/prompt-utils
 
 A lightweight and efficient prompt builder for LLM chat completions.
 
@@ -12,17 +12,17 @@ A lightweight and efficient prompt builder for LLM chat completions.
 ## Installation
 
 ```bash
-npm install @fatduckai/ai
+npm install @fatduckai/prompt-utils
 # or
-yarn add @fatduckai/ai
+yarn add @fatduckai/prompt-utils
 # or
-bun add @fatduckai/ai
+bun add @fatduckai/prompt-utils
 ```
 
 ## Quick Start
 
 ```typescript
-import { PromptBuilder } from "@fatduckai/ai";
+import { PromptBuilder } from "@fatduckai/prompt-utils";
 import OpenAI from "openai";
 
 async function main() {
@@ -137,4 +137,4 @@ FatDuckAI
 
 ## Support
 
-- Issues: [GitHub Issues](https://github.com/fatduckai/ai/issues)
+- Issues: [GitHub Issues](https://github.com/fatduckai/prompt-utils/issues)
