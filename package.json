@@ -51,7 +51,6 @@
   "devDependencies": {
     "@biomejs/biome": "1.5.3",
     "@changesets/cli": "^2.27.9",
-    "@changesets/pre": "^2.0.1",
     "bun-types": "latest",
     "typescript": "^5.3.3"
   }
