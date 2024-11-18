@@ -1,39 +1,59 @@
 {
-  "name": "fatduckai",
+  "name": "@fatduckai/ai",
   "devDependencies": {
     "@biomejs/biome": "1.5.3",
     "@changesets/cli": "^2.27.9",
     "@changesets/pre": "^2.0.1",
-    "@vscode/vsce": "^2.24.0",
     "bun-types": "latest",
-    "husky": "^9.1.6",
     "typescript": "^5.3.3"
   },
-  "private": true,
+  "private": false,
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/",
+    "scope": "@fatduckai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fatduckai/ai.git",
+    "directory": "packages/ai"
+  },
   "scripts": {
-    "prepare": "husky install",
-    "build": "bun run build:ai",
-    "build:ai": "cd packages/ai && bun run build",
-    "build:vscode": "cd packages/vscode && bun run build",
-    "dev": "cd packages/playground && bun run dev",
+    "build": "bun run build:clean && bun run build:js && bun run build:types",
+    "build:clean": "rm -rf dist",
+    "build:js": "bun build ./src/index.ts --outdir ./dist --target node --sourcemap=external",
+    "build:types": "tsc --declaration --emitDeclarationOnly --outDir dist",
+    "watch": "bun build ./src/index.ts --outdir ./dist --target node --watch",
+    "dev": "bun --watch src/index.ts",
     "test": "bun test",
-    "lint": "bunx @biomejs/biome check .",
-    "vscode:install": "cd packages/vscode && bun install",
-    "setup": "bun install && bun run setup:all",
-    "setup:all": "bun run setup:ai && bun run setup:vscode && bun run setup:playground",
-    "setup:ai": "cd packages/ai && bun install",
-    "setup:vscode": "cd packages/vscode && bun install",
-    "setup:playground": "cd packages/playground && bun install",
-    "publish:ai": "cd packages/ai && bun run build && bun run npm publish",
-    "release:major": "bun scripts/release.ts major",
-    "release:minor": "bun scripts/release.ts minor",
-    "release:patch": "bun scripts/release.ts patch",
+    "typecheck": "tsc --noEmit",
+    "prepack": "bun run build",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "publish-packages": "bun run build && changeset publish",
     "release": "changeset publish"
   },
-  "workspaces": [
-    "packages/*"
-  ]
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "keywords": [
+    "prompt-engineering",
+    "llm",
+    "ai",
+    "template"
+  ],
+  "author": "Fat Duck AI",
+  "license": "MIT",
+  "dependencies": {
+    "zod": "^3.23.8"
+  }
 }
