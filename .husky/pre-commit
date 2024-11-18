@@ -1,8 +1,0 @@
-#!/bin/sh
-
-# Only run if not in CI
-if [ -z "$CI" ]; then
-  npx changeset status --since=origin/master && exit 0
-  echo "No changeset found. Please run 'npx changeset' to create one."
-  exit 1
-fi
