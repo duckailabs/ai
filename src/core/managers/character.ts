@@ -1,0 +1,144 @@
+import * as schema from "@/db";
+import {
+  type CharacterUpdate,
+  type CreateCharacterInput,
+  type ResponseStyles,
+} from "@/types";
+import { eq, sql } from "drizzle-orm";
+import { PostgresJsDatabase } from "drizzle-orm/postgres-js";
+
+export class CharacterManager {
+  constructor(private db: PostgresJsDatabase<typeof schema>) {}
+
+  async getCharacter(id: string) {
+    const [character] = await this.db
+      .select()
+      .from(schema.characters)
+      .where(sql`id = ${id}`);
+
+    return character;
+  }
+
+  async createCharacter(input: CreateCharacterInput) {
+    try {
+      return await this.db.transaction(async (tx) => {
+        const defaultValues = {
+          responseStyles: {
+            default: {
+              tone: [],
+              personality: [],
+              guidelines: [],
+            },
+            platforms: {},
+          },
+          styles: {},
+          shouldRespond: { rules: [], examples: [] },
+          hobbies: [],
+          beliefSystem: [],
+          preferences: {
+            preferredTopics: [],
+            dislikedTopics: [],
+            preferredTimes: [],
+            dislikedTimes: [],
+            preferredDays: [],
+            dislikedDays: [],
+            preferredHours: [],
+            dislikedHours: [],
+            generalLikes: [],
+            generalDislikes: [],
+          },
+        };
+
+        const [character] = await tx
+          .insert(schema.characters)
+          .values({
+            ...defaultValues,
+            ...input,
+          })
+          .returning();
+
+        await this.initializeCharacter(tx, character.id);
+        return character;
+      });
+    } catch (error) {
+      console.error("Error creating character:", error);
+      throw error;
+    }
+  }
+
+  async updateCharacter(id: string, update: CharacterUpdate) {
+    try {
+      if (update.responseStyles) {
+        update.responseStyles = this.validateResponseStyles(
+          update.responseStyles
+        );
+      }
+
+      const [updated] = await this.db
+        .update(schema.characters)
+        .set({
+          ...update,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.characters.id, id))
+        .returning();
+
+      return updated;
+    } catch (error) {
+      console.error("Error updating character:", error);
+      throw error;
+    }
+  }
+
+  private async initializeCharacter(tx: any, characterId: string) {
+    await tx.insert(schema.memories).values({
+      characterId,
+      type: "learning",
+      content: "Character initialization",
+      importance: 1.0,
+      metadata: {
+        type: "creation",
+        timestamp: new Date().toISOString(),
+      },
+    });
+
+    await tx.insert(schema.events).values({
+      characterId,
+      type: "character:created",
+      payload: {
+        timestamp: new Date().toISOString(),
+      },
+      metadata: {
+        timestamp: new Date().toISOString(),
+        source: "system",
+      },
+      processed: true,
+    });
+
+    const character = await this.getCharacter(characterId);
+    if (character?.hobbies?.length) {
+      await tx.insert(schema.goals).values(
+        character.hobbies.map((hobby) => ({
+          characterId,
+          description: `Develop expertise in ${hobby.name}`,
+          status: "active",
+          progress: 0,
+          metadata: {
+            hobby: hobby.name,
+            currentProficiency: hobby.proficiency,
+            targetProficiency: Math.min((hobby.proficiency ?? 0) + 2, 10),
+            notes: [`Started with proficiency level ${hobby.proficiency}`],
+          },
+        }))
+      );
+    }
+  }
+
+  private validateResponseStyles(styles: ResponseStyles): ResponseStyles {
+    if (!styles.default) {
+      throw new Error("Default response styles are required");
+    }
+    // ... rest of validation logic ...
+    return styles;
+  }
+}

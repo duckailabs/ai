@@ -7,7 +7,7 @@ A character management and prompt handling system for AI agents. Manages charact
 - 🧠 Character personality management
 - 💬 Multi-platform response handling (Twitter, Discord, Telegram, Slack)
 - 📚 Chat history importing and analysis
-- 🤖 OpenAI-powered message analysis
+- 🤖 LLM-powered message analysis (OpenAI, Anthropic, Mistral compatible)
 - 🎯 Dynamic context generation
 - 💾 Event and memory tracking
 - ⚡ Importance analysis system
@@ -21,67 +21,95 @@ npm install @fatduckai/ai
 ## Quick Start
 
 ```typescript
-import { ai } from "@fatduckai/ai";
+import { AI } from "@fatduckai/ai";
 import { db } from "./your-db-setup";
 
-// Initialize
-const ai = new ai(db);
+// Initialize with OpenAI
+const ai = new AI(db, {
+  apiKey: process.env.OPENAI_API_KEY!,
+  llm: {
+    model: "gpt-4-turbo-preview",
+    temperature: 0.7,
+  },
+  analyzer: {
+    model: "gpt-3.5-turbo",
+    temperature: 0.3,
+  },
+});
 
-// Create a character
-const character = await ai.createCharacter({
+// Initialize with Anthropic
+const anthropicAI = new AI(db, {
+  apiKey: process.env.ANTHROPIC_API_KEY!,
+  baseURL: "https://api.anthropic.com/v1",
+  llm: {
+    model: "claude-3-opus-20240229",
+    temperature: 0.7,
+  },
+  analyzer: {
+    model: "claude-3-sonnet-20240229",
+    temperature: 0.3,
+  },
+});
+
+// Create a character (minimal)
+const basicCharacter = await ai.createCharacter({
   name: "AI Assistant",
-  bio: "Helpful AI assistant with expertise in tech",
-  personalityTraits: ["friendly", "knowledgeable"],
-  responseStyles: defaultResponseStyles, // Import from @fatduckai/ai
+  bio: "A helpful AI assistant",
+  personalityTraits: ["friendly", "helpful"],
+});
+
+// Create a character (with full configuration)
+const fullCharacter = await ai.createCharacter({
+  name: "AI Assistant",
+  bio: "A helpful AI assistant",
+  personalityTraits: ["friendly", "helpful"],
+  styles: {
+    chat: {
+      rules: ["Be conversational"],
+      examples: ["Hello!"],
+    },
+    professional: {
+      rules: ["Be formal"],
+      examples: ["Good morning."],
+    },
+  },
   preferences: {
     preferredTopics: ["technology"],
     dislikedTopics: [],
-    preferredTimes: [],
-    dislikedTimes: [],
-    preferredDays: [],
-    dislikedDays: [],
-    preferredHours: [],
-    dislikedHours: [],
     generalLikes: ["helping"],
     generalDislikes: [],
   },
+  hobbies: [
+    {
+      name: "coding",
+      proficiency: 8,
+    },
+  ],
 });
 ```
 
-## Response System
-
-### Preparing Prompts
+## Interaction System
 
 ```typescript
 // Generate a response
-const prepared = await ai.preparePrompt(
+const result = await ai.interact(
   characterId,
   YOUR_TEMPLATE,
-  "tweet_reply", // Response type
+  "tweet_reply",
   {
     replyTo: "Original message",
     tone: "casual",
+  },
+  {
+    temperature: 0.8, // Optional LLM-specific options
   }
 );
 
-// Use with your LLM
-const response = await llm.chat.completions.create({
-  messages: prepared.messages,
-  model: "gpt-4-turbo-preview",
-});
-
-// Record the interaction
-await ai.recordInteraction(
-  characterId,
-  prepared,
-  response.choices[0].message.content,
-  "tweet_reply"
-);
+console.log(result.content); // The generated response
+console.log(result.metadata); // Response metadata and context
 ```
 
 ### Response Types
-
-The system supports various response types across platforms:
 
 #### Twitter
 
@@ -111,8 +139,6 @@ The system supports various response types across platforms:
 
 ## Memory System
 
-### Adding Memories
-
 ```typescript
 // Add single memory
 await ai.addMemory(characterId, "Learned about quantum computing", {
@@ -126,103 +152,153 @@ await ai.addMemory(characterId, "Learned about quantum computing", {
 // Batch add memories
 await ai.addMemoryBatch(characterId, [
   { content: "Memory 1", type: "interaction" },
-  {
-    content: "Memory 2",
-    importance: 0.8,
-    type: "achievement",
-  },
+  { content: "Memory 2", type: "achievement" },
 ]);
 ```
 
-### Importance Analysis
+## System Architecture
 
-The system includes a flexible importance analysis system:
+The system uses a modular architecture with specialized managers:
 
-#### Default OpenAI Analyzer
+## Character Creation
 
-```typescript
-import { ai, OpenAIImportanceAnalyzer } from "@fatduckai/ai";
-
-// Configure analyzer
-const analyzer = new OpenAIImportanceAnalyzer(process.env.OPENAI_API_KEY, {
-  model: "gpt-4-turbo-preview",
-  temperature: 0.3,
-});
-
-const ai = new ai(db, analyzer);
-```
-
-#### Custom Analyzer
+### From Chat History
 
 ```typescript
-import { IImportanceAnalyzer } from "@fatduckai/ai";
+// Import chat messages
+const messages: ChatMessage[] = [
+  {
+    senderId: "user123",
+    senderName: "John Doe",
+    content: "Hello world!",
+    timestamp: new Date(),
+    metadata: {
+      reactions: [{ type: "like", count: 2, users: ["user1", "user2"] }],
+    },
+  },
+  // ... more messages
+];
 
-class CustomAnalyzer implements IImportanceAnalyzer {
-  async analyzeImportance(
-    content: string,
-    context?: Record<string, any>
-  ): Promise<number> {
-    // Your custom logic here
-    return 0.5;
-  }
-}
-
-const ai = new ai(db, new CustomAnalyzer());
-```
-
-## Chat History Import
-
-```typescript
-import { ChatImporter } from "@fatduckai/ai";
-
-const importer = new ChatImporter(db, process.env.OPENAI_API_KEY);
-
-await importer.importGoogleChat(chatLogs, {
-  batchSize: 100,
-  processMemories: true,
+// Create character from chat history
+const character = await ai.createCharacterFromData({
+  data: messages,
+  type: "chat",
+  options: {
+    minConfidence: 0.6,
+  },
 });
 ```
 
-## Database Schema
+### From Twitter History
 
-The system uses the following tables:
+```typescript
+// Import tweets
+const tweets: Tweet[] = [
+  {
+    id: "123456",
+    text: "Just launched our new product!",
+    created_at: "2024-03-18T12:00:00Z",
+    retweet_count: 50,
+    favorite_count: 100,
+    reply_count: 25,
+    user: {
+      id: "user123",
+      screen_name: "johndoe",
+      name: "John Doe",
+    },
+    entities: {
+      hashtags: [{ text: "launch" }],
+      user_mentions: [],
+    },
+  },
+  // ... more tweets
+];
 
-### Characters
+// Create character from tweets
+const character = await ai.createCharacterFromData({
+  data: tweets,
+  type: "tweet",
+  options: {
+    minConfidence: 0.6,
+  },
+});
+```
 
-- Core personality data
-- Response styles
-- Preferences
-- Traits
+### Character Analysis
 
-### Events
+The system uses LLM-powered analysis to create rich character profiles from social data:
 
-- Interaction history
-- Message logs
-- System events
+- Personality trait detection
+- Communication style analysis
+- Topic preference identification
+- Platform-specific behavior patterns
+- Temporal activity patterns
+- Social interaction analysis
 
-### Memories
+````
 
-- Important information
-- Learning experiences
-- Key interactions
+### Style Manager
 
-### Social Relations
+Handles response formatting and platform-specific styles:
 
-- User relationships
-- Interaction history
-- Preferences
+```typescript
+// Update platform-specific styles
+await ai.updatePlatformStyles(characterId, "twitter", {
+  enabled: true,
+  defaultTone: ["casual", "friendly"],
+  defaultGuidelines: ["Use hashtags sparingly"],
+  styles: {
+    tweet_create: {
+      enabled: true,
+      tone: ["engaging"],
+      formatting: {
+        maxLength: 280,
+        allowEmojis: true,
+      },
+      contextRules: ["Consider trends"],
+      examples: ["Example tweet"],
+      guidelines: ["Be concise"],
+    },
+  },
+});
+````
 
-### Goals
+### Memory Manager
 
-- Character objectives
-- Progress tracking
-- Completion criteria
+Handles memory storage and importance analysis:
+
+```typescript
+await ai.addMemory(characterId, content, {
+  type: "learning",
+  metadata: {
+    topic: "ai",
+    sentiment: 0.9,
+  },
+});
+```
+
+### LLM Manager
+
+Handles interactions with language models:
+
+```typescript
+const response = await ai.interact(
+  characterId,
+  template,
+  responseType,
+  context,
+  { temperature: 0.7 }
+);
+```
 
 ## Environment Variables
 
 ```env
 DATABASE_URL=your_database_url
-OPENAI_API_KEY=your_openai_key  # If using default analyzer
+OPENAI_API_KEY=your_openai_key
+# Or for other providers
+ANTHROPIC_API_KEY=your_anthropic_key
+MISTRAL_API_KEY=your_mistral_key
 ```
 
 ## TypeScript Types
@@ -235,69 +311,23 @@ import type {
   SocialRelation,
   ResponseStyles,
   StyleSettings,
+  AIConfig,
+  CreateCharacterInput,
+  Preferences,
+  Hobby,
 } from "@fatduckai/ai";
 ```
 
 ## Error Handling
 
-The system includes comprehensive error handling:
-
 ```typescript
 try {
-  await ai.addMemory(characterId, content);
+  await ai.interact(characterId, template, "tweet_reply", context);
 } catch (error) {
   if (error instanceof AIValidationError) {
     // Handle validation errors
-  } else if (error instanceof AnalyzerError) {
-    // Handle analyzer errors
+  } else if (error instanceof LLMError) {
+    // Handle LLM-related errors
   }
 }
 ```
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## Development
-
-```bash
-# Install dependencies
-npm install
-
-# Run tests
-npm test
-
-# Build
-npm run build
-```
-
-## License
-
-MIT
-
-## Authors
-
-- Fat Duck AI
-- [GitHub](https://github.com/fatduckai)
-
-## Acknowledgments
-
-- OpenAI for GPT models
-- DrizzleORM for database management
-
-## Related Projects
-
-- [@fatduckai/prompts](https://github.com/fatduckai/prompts) - Prompt management system
-- [@fatduckai/memory](https://github.com/fatduckai/memory) - Advanced memory systems
-
-## Support
-
-For support, email support@fatduckai.com or join our [Discord](https://discord.gg/fatduckai)
-
-## API Documentation
-
-For detailed API documentation, visit [docs/api.md](./docs/api.md)

@@ -1,3 +1,4 @@
+import type { Preferences, ResponseStyles } from "@/types";
 import { sql } from "drizzle-orm";
 import {
   boolean,
@@ -71,6 +72,25 @@ export const responseTypeEnum = pgEnum("response_type", [
   "slack_dm",
 ]);
 
+export type ConversationStyle =
+  (typeof conversationStyleEnum.enumValues)[number];
+
+export type StylesConfig = {
+  [K in ConversationStyle]?: {
+    rules: string[];
+    examples: string[];
+  };
+};
+
+const DEFAULT_RESPONSE_STYLES: ResponseStyles = {
+  default: {
+    tone: [],
+    personality: [],
+    guidelines: [],
+  },
+  platforms: {},
+} as const;
+
 // Update the characters table
 export const characters = pgTable("characters", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -81,63 +101,28 @@ export const characters = pgTable("characters", {
 
   // Add responseStyles
   responseStyles: jsonb("response_styles")
-    .$type<{
-      default: {
-        tone: string[];
-        personality: string[];
-        guidelines: string[];
-      };
-      platforms: {
-        [key: string]: {
-          enabled: boolean;
-          defaultTone: string[];
-          defaultGuidelines: string[];
-          styles: {
-            [key: string]: {
-              enabled: boolean;
-              tone: string[];
-              formatting: {
-                maxLength?: number;
-                allowEmojis?: boolean;
-                allowMarkdown?: boolean;
-                allowLinks?: boolean;
-                allowMentions?: boolean;
-                customRules?: string[];
-              };
-              contextRules: string[];
-              examples: string[];
-              guidelines: string[];
-            };
-          };
-        };
-      };
-    }>()
-    .notNull(),
-
-  // Your existing fields
+    .$type<ResponseStyles>()
+    .notNull()
+    .default(DEFAULT_RESPONSE_STYLES),
   styles: jsonb("styles")
-    .$type<{
-      [key in (typeof conversationStyleEnum.enumValues)[number]]: {
-        rules: string[];
-        examples: string[];
-      };
-    }>()
-    .notNull(),
+    .$type<StylesConfig>()
+    .default({
+      chat: { rules: [], examples: [] },
+      professional: { rules: [], examples: [] },
+      casual: { rules: [], examples: [] },
+    }),
 
-  shouldRespond: jsonb("should_respond")
-    .$type<{
-      rules: string[];
-      examples: string[];
-    }>()
-    .notNull(),
-
+  shouldRespond: jsonb("should_respond").$type<{
+    rules: string[];
+    examples: string[];
+  }>(),
   hobbies: jsonb("hobbies")
     .$type<
       Array<{
         name: string;
-        proficiency: number;
+        proficiency?: number;
         lastPracticed?: string;
-        relatedTopics: string[];
+        relatedTopics?: string[];
         metadata?: Record<string, unknown>;
       }>
     >()
@@ -145,21 +130,18 @@ export const characters = pgTable("characters", {
 
   beliefSystem: jsonb("belief_system").$type<string[]>().default([]),
 
-  preferences: jsonb("preferences")
-    .$type<{
-      preferredTopics: string[];
-      dislikedTopics: string[];
-      preferredTimes: string[];
-      dislikedTimes: string[];
-      preferredDays: string[];
-      dislikedDays: string[];
-      preferredHours: string[];
-      dislikedHours: string[];
-      generalLikes: string[];
-      generalDislikes: string[];
-    }>()
-    .notNull(),
-
+  preferences: jsonb("preferences").$type<Preferences>().default({
+    preferredTopics: [],
+    dislikedTopics: [],
+    preferredTimes: [],
+    dislikedTimes: [],
+    preferredDays: [],
+    dislikedDays: [],
+    preferredHours: [],
+    dislikedHours: [],
+    generalLikes: [],
+    generalDislikes: [],
+  }),
   createdAt: timestamp("created_at")
     .notNull()
     .default(sql`now()`),
