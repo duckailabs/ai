@@ -1,0 +1,5 @@
+---
+"@fatduckai/ai": minor
+---
+
+refactor
