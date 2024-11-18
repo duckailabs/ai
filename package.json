@@ -1,12 +1,5 @@
 {
   "name": "@fatduckai/ai",
-  "devDependencies": {
-    "@biomejs/biome": "1.5.3",
-    "@changesets/cli": "^2.27.9",
-    "@changesets/pre": "^2.0.1",
-    "bun-types": "latest",
-    "typescript": "^5.3.3"
-  },
   "private": false,
   "publishConfig": {
     "access": "public",
@@ -15,8 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/fatduckai/ai.git",
-    "directory": "packages/ai"
+    "url": "https://github.com/fatduckai/ai.git"
   },
   "scripts": {
     "build": "bun run build:clean && bun run build:js && bun run build:types",
@@ -55,5 +47,12 @@
   "license": "MIT",
   "dependencies": {
     "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "1.5.3",
+    "@changesets/cli": "^2.27.9",
+    "@changesets/pre": "^2.0.1",
+    "bun-types": "latest",
+    "typescript": "^5.3.3"
   }
 }
