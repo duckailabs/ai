@@ -33,7 +33,7 @@
     "publish-packages": "bun run build && changeset publish",
     "release": "changeset publish"
   },
-  "version": "0.1.0",
+  "version": "0.3.4",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
