@@ -1,4 +1,4 @@
-import { LintResult, ParsedTemplate } from "./types";
+import type { LintResult, ParsedTemplate } from "./types.js";
 export class Linter {
   constructor(
     private context: Record<string, any> = {},

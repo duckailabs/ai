@@ -1,4 +1,4 @@
-import { Block, ParsedTemplate, Role } from "./types.js";
+import type { Block, ParsedTemplate, Role } from "./types.js";
 
 export class Parser {
   static parse(template: string): ParsedTemplate {
