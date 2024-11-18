@@ -46,12 +46,19 @@
   "author": "Fat Duck AI",
   "license": "MIT",
   "dependencies": {
+    "@fatduckai/prompt-utils": "^0.4.1",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.36.3",
+    "drizzle-zod": "^0.5.1",
+    "openai": "^4.72.0",
+    "postgres": "^3.4.5",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@biomejs/biome": "1.5.3",
     "@changesets/cli": "^2.27.9",
     "bun-types": "latest",
+    "drizzle-kit": "^0.28.1",
     "typescript": "^5.3.3"
   }
 }

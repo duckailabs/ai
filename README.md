@@ -1,142 +1,303 @@
-# @fatduckai/prompt-utils
+# @fatduckai/ai
 
-![duck_banner](https://github.com/user-attachments/assets/33c039c6-bd6a-436f-952e-fbc88ae07c50)
-
-_A lightweight and efficient prompt builder for LLM chat completions._
+A character management and prompt handling system for AI agents. Manages character personalities, chat histories, and dynamic response generation across multiple platforms.
 
 ## Features
 
-- 🚀 Simple, declarative chat prompt templates
-- 🔍 Variable substitution with validation
-- ✅ Built-in lint checks
-- 📝 TypeScript support
+- 🧠 Character personality management
+- 💬 Multi-platform response handling (Twitter, Discord, Telegram, Slack)
+- 📚 Chat history importing and analysis
+- 🤖 OpenAI-powered message analysis
+- 🎯 Dynamic context generation
+- 💾 Event and memory tracking
+- ⚡ Importance analysis system
 
 ## Installation
 
 ```bash
-npm install @fatduckai/prompt-utils
-# or
-yarn add @fatduckai/prompt-utils
-# or
-bun add @fatduckai/prompt-utils
+npm install @fatduckai/ai
 ```
 
 ## Quick Start
 
 ```typescript
-import { PromptBuilder } from "@fatduckai/prompt-utils";
-import OpenAI from "openai";
+import { ai } from "@fatduckai/ai";
+import { db } from "./your-db-setup";
 
-async function main() {
-  const template = `
-    <system>You are a helpful AI assistant.</system>
-    <user>My name is <name> and I need help with <task></user>
-  `;
+// Initialize
+const ai = new ai(db);
 
-  const builder = new PromptBuilder(template).withContext({
-    name: "Alice",
-    task: "writing code",
-  });
-
-  const messages = await builder.build();
-
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-  const completion = await openai.chat.completions.create({
-    model: "gpt-3.5-turbo",
-    messages,
-  });
-
-  console.log(completion.choices[0].message);
-}
-```
-
-## Template Format
-
-Templates use a simple XML-like syntax supporting system, user, and assistant messages:
-
-```typescript
-const template = `
-  <system>System message here</system>
-  <user>User message with <variable></user>
-  <assistant>Assistant response here</assistant>
-`;
-```
-
-## Configuration
-
-```typescript
-const builder = new PromptBuilder(template, {
-  validateOnBuild: true, // Validate before building (default: true)
-  throwOnWarnings: false, // Throw error on warnings (default: false)
-  allowEmptyContent: false, // Allow empty messages (default: false)
+// Create a character
+const character = await ai.createCharacter({
+  name: "AI Assistant",
+  bio: "Helpful AI assistant with expertise in tech",
+  personalityTraits: ["friendly", "knowledgeable"],
+  responseStyles: defaultResponseStyles, // Import from @fatduckai/ai
+  preferences: {
+    preferredTopics: ["technology"],
+    dislikedTopics: [],
+    preferredTimes: [],
+    dislikedTimes: [],
+    preferredDays: [],
+    dislikedDays: [],
+    preferredHours: [],
+    dislikedHours: [],
+    generalLikes: ["helping"],
+    generalDislikes: [],
+  },
 });
 ```
 
-## Examples
+## Response System
 
-The repository includes several examples demonstrating different use cases:
+### Preparing Prompts
 
-### Basic Chat
+```typescript
+// Generate a response
+const prepared = await ai.preparePrompt(
+  characterId,
+  YOUR_TEMPLATE,
+  "tweet_reply", // Response type
+  {
+    replyTo: "Original message",
+    tone: "casual",
+  }
+);
 
-```bash
-bun examples/basic-chat.ts
+// Use with your LLM
+const response = await llm.chat.completions.create({
+  messages: prepared.messages,
+  model: "gpt-4-turbo-preview",
+});
+
+// Record the interaction
+await ai.recordInteraction(
+  characterId,
+  prepared,
+  response.choices[0].message.content,
+  "tweet_reply"
+);
 ```
 
-Shows simple variable substitution and message building.
+### Response Types
 
-### Multi-turn Conversations
+The system supports various response types across platforms:
 
-```bash
-bun examples/multi-turn.ts
+#### Twitter
+
+- `tweet_create` - Original tweets
+- `tweet_reply` - Tweet replies
+- `tweet_thread` - Thread creation
+
+#### Discord
+
+- `discord_chat` - General chat
+- `discord_mod` - Moderation responses
+- `discord_help` - Help/support responses
+- `discord_welcome` - Welcome messages
+
+#### Telegram
+
+- `telegram_chat` - Direct messages
+- `telegram_group` - Group messages
+- `telegram_broadcast` - Channel posts
+
+#### Slack
+
+- `slack_chat` - General messages
+- `slack_thread` - Thread replies
+- `slack_channel` - Channel messages
+- `slack_dm` - Direct messages
+
+## Memory System
+
+### Adding Memories
+
+```typescript
+// Add single memory
+await ai.addMemory(characterId, "Learned about quantum computing", {
+  type: "learning",
+  metadata: {
+    topic: "quantum_computing",
+    sentiment: 0.8,
+  },
+});
+
+// Batch add memories
+await ai.addMemoryBatch(characterId, [
+  { content: "Memory 1", type: "interaction" },
+  {
+    content: "Memory 2",
+    importance: 0.8,
+    type: "achievement",
+  },
+]);
 ```
 
-Demonstrates how to create conversations with multiple turns.
+### Importance Analysis
 
-### Database Integration
+The system includes a flexible importance analysis system:
 
-```bash
-bun examples/analytics.ts
+#### Default OpenAI Analyzer
+
+```typescript
+import { ai, OpenAIImportanceAnalyzer } from "@fatduckai/ai";
+
+// Configure analyzer
+const analyzer = new OpenAIImportanceAnalyzer(process.env.OPENAI_API_KEY, {
+  model: "gpt-4-turbo-preview",
+  temperature: 0.3,
+});
+
+const ai = new ai(db, analyzer);
 ```
 
-Shows how to use the builder with database content.
+#### Custom Analyzer
 
-### OpenAI Integration
+```typescript
+import { IImportanceAnalyzer } from "@fatduckai/ai";
 
-```bash
-bun examples/openai-integration.ts
+class CustomAnalyzer implements IImportanceAnalyzer {
+  async analyzeImportance(
+    content: string,
+    context?: Record<string, any>
+  ): Promise<number> {
+    // Your custom logic here
+    return 0.5;
+  }
+}
+
+const ai = new ai(db, new CustomAnalyzer());
 ```
 
-Complete example of using the builder with OpenAI's API.
+## Chat History Import
 
-Check the [examples](./examples) directory for the full source code and more examples.
+```typescript
+import { ChatImporter } from "@fatduckai/ai";
+
+const importer = new ChatImporter(db, process.env.OPENAI_API_KEY);
+
+await importer.importGoogleChat(chatLogs, {
+  batchSize: 100,
+  processMemories: true,
+});
+```
+
+## Database Schema
+
+The system uses the following tables:
+
+### Characters
+
+- Core personality data
+- Response styles
+- Preferences
+- Traits
+
+### Events
+
+- Interaction history
+- Message logs
+- System events
+
+### Memories
+
+- Important information
+- Learning experiences
+- Key interactions
+
+### Social Relations
+
+- User relationships
+- Interaction history
+- Preferences
+
+### Goals
+
+- Character objectives
+- Progress tracking
+- Completion criteria
+
+## Environment Variables
+
+```env
+DATABASE_URL=your_database_url
+OPENAI_API_KEY=your_openai_key  # If using default analyzer
+```
+
+## TypeScript Types
+
+```typescript
+import type {
+  Character,
+  Event,
+  Memory,
+  SocialRelation,
+  ResponseStyles,
+  StyleSettings,
+} from "@fatduckai/ai";
+```
 
 ## Error Handling
 
-The builder validates:
-
-- Template structure
-- Undefined variables
-- Empty content (when not allowed)
-- Invalid context values
+The system includes comprehensive error handling:
 
 ```typescript
-// Get validation results
-const validation = await builder.validate();
-if (!validation.isValid) {
-  console.error("Validation errors:", validation.errors);
-  console.warn("Warnings:", validation.warnings);
+try {
+  await ai.addMemory(characterId, content);
+} catch (error) {
+  if (error instanceof AIValidationError) {
+    // Handle validation errors
+  } else if (error instanceof AnalyzerError) {
+    // Handle analyzer errors
+  }
 }
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Run tests
+npm test
+
+# Build
+npm run build
 ```
 
 ## License
 
 MIT
 
-## Author
+## Authors
 
-FatDuckAI
+- Fat Duck AI
+- [GitHub](https://github.com/fatduckai)
+
+## Acknowledgments
+
+- OpenAI for GPT models
+- DrizzleORM for database management
+
+## Related Projects
+
+- [@fatduckai/prompts](https://github.com/fatduckai/prompts) - Prompt management system
+- [@fatduckai/memory](https://github.com/fatduckai/memory) - Advanced memory systems
 
 ## Support
 
-- Issues: [GitHub Issues](https://github.com/fatduckai/prompt-utils/issues)
+For support, email support@fatduckai.com or join our [Discord](https://discord.gg/fatduckai)
+
+## API Documentation
+
+For detailed API documentation, visit [docs/api.md](./docs/api.md)
