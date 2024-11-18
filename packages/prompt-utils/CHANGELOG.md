@@ -1,5 +1,13 @@
 # @fatduckai/prompt-utils
 
+## 0.4.0
+
+### Minor Changes
+
+- 78d2999: fix bun
+- 2899548: new repo
+- 3c1f54f: init
+
 ## 0.3.3
 
 ### Patch Changes
