@@ -1,5 +1,16 @@
 # @fatduckai/ai
 
+## 0.5.0
+
+### Minor Changes
+
+- 958d8ad: fix
+
+### Patch Changes
+
+- 958d8ad: fix
+- d547bc9: fic changeset
+
 ## 0.4.0
 
 ### Minor Changes
