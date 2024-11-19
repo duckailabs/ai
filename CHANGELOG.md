@@ -1,5 +1,15 @@
 # @fatduckai/ai
 
+## 0.6.0
+
+### Minor Changes
+
+- 2d6d7a6: updated character creation
+
+### Patch Changes
+
+- 68fbfcf: fix package json
+
 ## 0.5.0
 
 ### Minor Changes
