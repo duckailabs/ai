@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1731946154347,
+      "tag": "0000_orange_living_tribunal",
+      "breakpoints": true
+    }
+  ]
+}
