@@ -32,8 +32,6 @@ export class CharacterBuilder {
       // Prepare data for analysis
       const preparedData = this.prepareDataForAnalysis(input);
 
-      // Generate profile
-      console.log("type", input.type);
       const result = await this.llm.generateResponse(
         await this.llm.preparePrompt(this.getPromptForType(input.type), {
           chatHistory: preparedData,
@@ -87,6 +85,7 @@ export class CharacterBuilder {
       "hobbies",
       "beliefSystem",
       "preferences",
+      "goals",
     ];
 
     for (const field of requiredFields) {
@@ -98,7 +97,70 @@ export class CharacterBuilder {
     // Validate responseStyles
     this.validateResponseStyles(profile.responseStyles);
 
+    // Validate goals
+    this.validateGoals(profile.goals);
+
     return profile as CreateCharacterInput;
+  }
+
+  private validateGoals(goals: any[]) {
+    if (!Array.isArray(goals)) {
+      throw new Error("Goals must be an array");
+    }
+
+    goals.forEach((goal, index) => {
+      if (!goal.description) {
+        throw new Error(`Goal at index ${index} missing description`);
+      }
+
+      if (
+        goal.status &&
+        !["active", "completed", "paused"].includes(goal.status)
+      ) {
+        throw new Error(`Invalid status for goal at index ${index}`);
+      }
+
+      if (
+        goal.progress !== undefined &&
+        (goal.progress < 0 || goal.progress > 100)
+      ) {
+        throw new Error(`Invalid progress for goal at index ${index}`);
+      }
+    });
+  }
+
+  private calculateFieldConfidence(field: string, value: any): number {
+    // Add goals to confidence calculation
+    switch (field) {
+      case "name":
+        return 1;
+      case "bio":
+        return typeof value === "string" && value.length > 50 ? 0.8 : 0.6;
+      case "personalityTraits":
+        return Array.isArray(value) && value.length > 0 ? 0.7 : 0.5;
+      case "responseStyles":
+        return this.calculateResponseStylesConfidence(value);
+      case "preferences":
+        return this.calculatePreferencesConfidence(value);
+      case "goals":
+        return this.calculateGoalsConfidence(value);
+      default:
+        return 0.6;
+    }
+  }
+
+  private calculateGoalsConfidence(goals: any[]): number {
+    if (!Array.isArray(goals)) return 0;
+
+    const validGoals = goals.filter(
+      (goal) =>
+        goal.description &&
+        (!goal.status ||
+          ["active", "completed", "paused"].includes(goal.status)) &&
+        (!goal.progress || (goal.progress >= 0 && goal.progress <= 100))
+    );
+
+    return validGoals.length > 0 ? 0.7 : 0.4;
   }
 
   private validateResponseStyles(styles: ResponseStyles) {
@@ -200,24 +262,6 @@ export class CharacterBuilder {
     }
 
     return scores as Record<keyof CreateCharacterInput, number>;
-  }
-
-  private calculateFieldConfidence(field: string, value: any): number {
-    // Base confidence calculation logic
-    switch (field) {
-      case "name":
-        return 1; // Name is usually highly confident
-      case "bio":
-        return typeof value === "string" && value.length > 50 ? 0.8 : 0.6;
-      case "personalityTraits":
-        return Array.isArray(value) && value.length > 0 ? 0.7 : 0.5;
-      case "responseStyles":
-        return this.calculateResponseStylesConfidence(value);
-      case "preferences":
-        return this.calculatePreferencesConfidence(value);
-      default:
-        return 0.6; // Default confidence for other fields
-    }
   }
 
   private calculateResponseStylesConfidence(styles: ResponseStyles): number {

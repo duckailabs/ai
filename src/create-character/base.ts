@@ -58,7 +58,17 @@ Output must be valid JSON matching this exact structure (all fields required):
     "dislikedHours": string[],
     "generalLikes": string[],
     "generalDislikes": string[]
-  }
+  },
+  "goals": Array<{
+    "description": string,
+    "status": "active" | "completed" | "paused",
+    "progress": number,
+    "metadata": {
+      "dependencies": string[],
+      "completionCriteria": string[],
+      "notes": string[]
+    }
+  }>
 }
 
 Each field must be populated based on observable data, not assumptions.
