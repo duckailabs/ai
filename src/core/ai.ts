@@ -6,33 +6,41 @@ import { CharacterBuilder } from "@/create-character/builder";
 import { type ChatMessage, type Tweet } from "@/create-character/types";
 import * as schema from "@/db";
 import {
-  responseTypeEnum,
   type CharacterUpdate,
   type CreateCharacterInput,
-  type PlatformStyles,
+  type Platform,
   type ResponseStyles,
   type StyleSettings,
 } from "@/types";
-import { drizzle } from "drizzle-orm/postgres-js";
-import { EventEmitter } from "events";
+import { drizzle, PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { ToolManager } from "./managers/tools";
+import { EventService } from "./services/Event";
+import { InteractionService } from "./services/Interaction";
+import type {
+  InteractionMode,
+  InteractionOptions,
+  InteractionResult,
+} from "./types";
 
 export interface AIOptions {
   databaseUrl: string;
   llmConfig: AIConfig;
+  toolsDir?: string | "./ai/tools/";
 }
 
-export class ai extends EventEmitter {
+export class ai {
   private characterManager: CharacterManager;
   private memoryManager: MemoryManager;
   private styleManager: StyleManager;
   private llmManager: LLMManager;
   private characterBuilder: CharacterBuilder;
-  private db;
+  public db: PostgresJsDatabase<typeof schema>;
+  private interactionService: InteractionService;
+  private eventService: EventService;
+  private toolManager: ToolManager;
 
   constructor(options: AIOptions) {
-    super();
-
     const queryClient = postgres(options.databaseUrl, {
       max: 20,
       idle_timeout: 20,
@@ -45,17 +53,39 @@ export class ai extends EventEmitter {
     this.characterBuilder = new CharacterBuilder(this.llmManager);
     this.memoryManager = new MemoryManager(this.db, this.llmManager);
     this.styleManager = new StyleManager(this.characterManager);
+    this.eventService = new EventService(this.db);
+    this.toolManager = new ToolManager({ toolsDir: options.toolsDir });
+    this.interactionService = new InteractionService(
+      this.db,
+      this.characterManager,
+      this.styleManager,
+      this.llmManager,
+      this.memoryManager,
+      this.eventService,
+      this.toolManager
+    );
   }
 
-  // Expose necessary methods from managers
   async getCharacter(id: string) {
     return this.characterManager.getCharacter(id);
   }
 
   async createCharacter(
-    input: CreateCharacterInput & { responseStyles: ResponseStyles }
+    input: CreateCharacterInput & { responseStyles?: ResponseStyles }
   ) {
-    return this.characterManager.createCharacter(input);
+    const defaultResponseStyles: ResponseStyles = {
+      default: {
+        tone: [],
+        personality: [],
+        guidelines: [],
+      },
+      platforms: {},
+    };
+
+    return this.characterManager.createCharacter({
+      ...input,
+      responseStyles: input.responseStyles || defaultResponseStyles,
+    });
   }
 
   async updateCharacter(id: string, update: CharacterUpdate) {
@@ -64,8 +94,15 @@ export class ai extends EventEmitter {
 
   async updatePlatformStyles(
     characterId: string,
-    platform: (typeof schema.platformEnum.enumValues)[number],
-    styles: PlatformStyles
+    platform: Platform,
+    styles: {
+      enabled: boolean;
+      defaultTone: string[];
+      defaultGuidelines: string[];
+      styles: {
+        [key: string]: StyleSettings;
+      };
+    }
   ) {
     return this.styleManager.updatePlatformStyles(
       characterId,
@@ -84,139 +121,82 @@ export class ai extends EventEmitter {
   }) {
     try {
       const profile = await this.characterBuilder.analyzeData(input);
-      return this.characterManager.createCharacter(profile);
+      return this.characterManager.createCharacter({
+        ...profile,
+        responseStyles: {
+          default: {
+            tone: [],
+            personality: [],
+            guidelines: [],
+          },
+          platforms: {},
+        },
+      });
     } catch (error) {
       console.error("Error in character creation:", error);
       throw error;
     }
   }
 
-  // Main interaction method
   async interact(
-    characterId: string,
-    userInput: string,
-    responseType: (typeof responseTypeEnum.enumValues)[number],
-    context?: Record<string, any>,
-    options?: Record<string, any>
-  ) {
+    input: string | { system: string; user: string },
+    options: Omit<InteractionOptions, "characterId"> & {
+      characterId?: string;
+      mode?: InteractionMode;
+      tools?: string[];
+      toolContext?: Record<string, any>;
+      injections?: {
+        injectPersonality?: boolean;
+        injectStyle?: boolean;
+        customInjections?: Array<{
+          name: string;
+          content: string;
+          position: "before" | "after" | "replace";
+        }>;
+      };
+    } = {}
+  ): Promise<InteractionResult> {
     try {
-      const character = await this.characterManager.getCharacter(characterId);
-      if (!character) throw new Error("Character not found");
+      // Handle character selection
+      let characterId = options.characterId;
+      if (!characterId && options.mode !== "raw") {
+        const [firstCharacter] = await this.db
+          .select()
+          .from(schema.characters)
+          .limit(1);
 
-      const platform =
-        this.styleManager.getPlatformFromResponseType(responseType);
-      const styleSettings = this.styleManager.getStyleSettings(
-        character.responseStyles,
-        platform,
-        responseType
-      );
+        if (!firstCharacter) {
+          throw new Error("No characters available in the system");
+        }
+        characterId = firstCharacter.id;
+      }
 
-      // Include user input in context
-      const fullContext = {
-        ...context,
-        userInput,
-        name: character.name,
-        personality: character.personalityTraits.join(", "),
-        tone: styleSettings.tone?.join(", ") || "",
-        guidelines: styleSettings.guidelines?.join(", ") || "",
+      // Only include characterId in options if it exists
+      const interactionOptions = {
+        ...options,
+        mode: options.mode || (characterId ? "enhanced" : "raw"),
       };
 
-      // Build XML-formatted template
-      const template = this.buildResponseTemplate(
-        userInput,
-        character,
-        styleSettings,
-        responseType
+      if (characterId) {
+        interactionOptions.characterId = characterId;
+      }
+
+      // Load any specified tools
+      if (options.tools?.length) {
+        await Promise.all(
+          options.tools.map((tool) => this.toolManager.loadTool(tool))
+        );
+      }
+
+      return this.interactionService.handleInteraction(
+        input,
+        interactionOptions
       );
-
-      const messages = await this.llmManager.preparePrompt(
-        template,
-        fullContext
-      );
-
-      const response = await this.llmManager.generateResponse(
-        messages,
-        options
-      );
-
-      await this.memoryManager.addMemory(characterId, response.content, {
-        type: "interaction",
-        metadata: {
-          responseType,
-          context: fullContext,
-          llmMetadata: response.metadata,
-          userInput,
-        },
-      });
-
-      return {
-        content: response.content,
-        metadata: {
-          characterId,
-          responseType,
-          platform,
-          styleSettings,
-          contextUsed: fullContext,
-          llmMetadata: response.metadata,
-          template, // Include template for debugging
-        },
-      };
     } catch (error) {
       console.error("Error in interaction:", error);
+      console.error("Error message:", (error as Error).message);
+
       throw error;
     }
-  }
-
-  private buildResponseTemplate(
-    userInput: string,
-    character: schema.Character,
-    styleSettings: StyleSettings,
-    responseType: (typeof responseTypeEnum.enumValues)[number]
-  ): string {
-    // Build the system instructions block
-    let systemBlock = `<system>You are ${
-      character.name
-    }, and you must stay in character at all times.
-
-Character Traits:
-${character.personalityTraits.map((trait) => `- ${trait}`).join("\n")}
-
-${
-  styleSettings.tone?.length
-    ? `Tone:
-${styleSettings.tone.map((t) => `- ${t}`).join("\n")}`
-    : ""
-}
-
-${
-  styleSettings.guidelines?.length
-    ? `Guidelines:
-${styleSettings.guidelines.map((g) => `- ${g}`).join("\n")}`
-    : ""
-}
-
-${
-  styleSettings.examples?.length
-    ? `Example Responses:
-${styleSettings.examples.map((ex) => `- ${ex}`).join("\n")}`
-    : ""
-}
-
-${
-  Object.keys(styleSettings.formatting || {}).length
-    ? `Formatting Rules:
-${Object.entries(styleSettings.formatting || {})
-  .map(([key, value]) => `- ${key}: ${value}`)
-  .join("\n")}`
-    : ""
-}
-
-Always maintain character consistency and respond naturally while following the above guidelines.</system>`;
-
-    // Add the user's message
-    let userBlock = `<user>${userInput}</user>`;
-
-    // Combine the blocks
-    return `${systemBlock}\n\n${userBlock}`;
   }
 }

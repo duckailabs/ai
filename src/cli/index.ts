@@ -37,7 +37,7 @@ class CharacterCLI {
       llmConfig: {
         apiKey: process.env.OPENAI_API_KEY!,
         llm: {
-          model: "gpt-4o",
+          model: "gpt-4-turbo-preview",
           temperature: 0.5,
         },
         analyzer: {
@@ -45,11 +45,11 @@ class CharacterCLI {
           temperature: 0.3,
         },
       },
+      toolsDir: "./src/tools", // Add tools directory
     });
 
     this.setupCommander();
   }
-
   private setupCommander() {
     program
       .name("character-cli")
@@ -228,7 +228,7 @@ class CharacterCLI {
     console.log(
       chalk.cyan(
         `\n[${chalk.bold(character.name)}] Ready to chat! ${chalk.dim(
-          '(type "exit" to return to menu)'
+          '(type "exit" to return to menu, "price" to check BTC)'
         )}\n`
       )
     );
@@ -242,15 +242,20 @@ class CharacterCLI {
         }
 
         try {
-          const response = await this.ai.interact(
-            this.activeCharacterId!,
-            input,
-            "slack_chat",
-            {
+          // Use our new interaction system
+          const response = await this.ai.interact(input, {
+            characterId: this.activeCharacterId!,
+            mode: "enhanced",
+            responseType: "slack_chat",
+            // Add BTC price tool if command is price-related
+            tools: input.toLowerCase().includes("price")
+              ? ["btc-price"]
+              : undefined,
+            context: {
               userInput: input,
               timestamp: new Date().toISOString(),
-            }
-          );
+            },
+          });
 
           console.log(
             chalk.green(

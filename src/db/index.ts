@@ -13,6 +13,9 @@ const client = postgres(connectionString, {
   max: 20, // maximum number of connections
   idle_timeout: 20, // how long a connection can be idle before being closed
   connect_timeout: 10, // how long to wait for a connection
+  debug: (msg) => {
+    console.log(msg);
+  },
 });
 export const db = drizzle(client, { schema });
 

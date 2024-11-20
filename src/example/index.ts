@@ -49,8 +49,8 @@ async function runExample() {
     const rawResponse = await agent.interact(
       {
         system:
-          "You are a crypto market analyst. Use the provided BTC price data to give a brief market update.",
-        user: "What's the current state of BTC?",
+          "Generate a single tweet. No hashtags, quotes, or waddling references. Be original and avoid starting with 'Sometimes'.",
+        user: "To continue growing my Twitter following and building a cult-like community around Ducky through engaging content about being a web3/crypto degen.",
       },
       {
         tools: ["btc-price"],
@@ -66,9 +66,8 @@ async function runExample() {
     console.log("\n=== Testing mixed mode with custom injection ===");
     const mixedResponse = await agent.interact(
       {
-        system:
-          "Analyze the current market sentiment and technical indicators.",
-        user: "Give me your unfiltered thoughts on the market right now.",
+        system: "Be original and avoid starting with 'Sometimes'.",
+        user: "To continue growing my Twitter following and building a cult-like community around Ducky through engaging content about being a web3/crypto degen.",
       },
       {
         characterId: character.id,
@@ -76,8 +75,6 @@ async function runExample() {
         platform: "twitter",
         responseType: "tweet_create",
         injections: {
-          injectPersonality: true,
-          injectStyle: false,
           customInjections: [
             {
               name: "btc_context",
