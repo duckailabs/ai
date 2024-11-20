@@ -1,333 +1,250 @@
-# @fatduckai/ai
+# AI Character System
 
-A character management and prompt handling system for AI agents. Manages character personalities, chat histories, and dynamic response generation across multiple platforms.
+A flexible system for creating and managing AI characters with platform-specific response styles and personality traits.
 
 ## Features
 
-- 🧠 Character personality management
-- 💬 Multi-platform response handling (Twitter, Discord, Telegram, Slack)
-- 📚 Chat history importing and analysis
-- 🤖 LLM-powered message analysis (OpenAI, Anthropic, Mistral compatible)
-- 🎯 Dynamic context generation
-- 💾 Event and memory tracking
-- ⚡ Importance analysis system
+- Character creation and management
+- Platform-specific response formatting (Twitter, Discord)
+- Tool integration for real-time data
+- Multiple interaction modes
+- Personality and style injection
+- Memory management
+- Event tracking
 
 ## Installation
 
 ```bash
-npm install @fatduckai/ai
+npm install
+# or
+bun install
+```
+
+Create a `.env` file with:
+
+```env
+DATABASE_URL=your_database_url
+OPENAI_API_KEY=your_openai_api_key
 ```
 
 ## Quick Start
 
 ```typescript
-import { AI } from "@fatduckai/ai";
-import { db } from "./your-db-setup";
+import { ai } from "../core/ai";
 
-// Initialize with OpenAI
-const ai = new AI(db, {
-  apiKey: process.env.OPENAI_API_KEY!,
-  llm: {
-    model: "gpt-4-turbo-preview",
-    temperature: 0.7,
-  },
-  analyzer: {
-    model: "gpt-3.5-turbo",
-    temperature: 0.3,
-  },
-});
-
-// Initialize with Anthropic
-const anthropicAI = new AI(db, {
-  apiKey: process.env.ANTHROPIC_API_KEY!,
-  baseURL: "https://api.anthropic.com/v1",
-  llm: {
-    model: "claude-3-opus-20240229",
-    temperature: 0.7,
-  },
-  analyzer: {
-    model: "claude-3-sonnet-20240229",
-    temperature: 0.3,
-  },
-});
-
-// Create a character (minimal)
-const basicCharacter = await ai.createCharacter({
-  name: "AI Assistant",
-  bio: "A helpful AI assistant",
-  personalityTraits: ["friendly", "helpful"],
-});
-
-// Create a character (with full configuration)
-const fullCharacter = await ai.createCharacter({
-  name: "AI Assistant",
-  bio: "A helpful AI assistant",
-  personalityTraits: ["friendly", "helpful"],
-  styles: {
-    chat: {
-      rules: ["Be conversational"],
-      examples: ["Hello!"],
-    },
-    professional: {
-      rules: ["Be formal"],
-      examples: ["Good morning."],
-    },
-  },
-  preferences: {
-    preferredTopics: ["technology"],
-    dislikedTopics: [],
-    generalLikes: ["helping"],
-    generalDislikes: [],
-  },
-  hobbies: [
-    {
-      name: "coding",
-      proficiency: 8,
-    },
-  ],
-});
-```
-
-## Interaction System
-
-```typescript
-// Generate a response
-const result = await ai.interact(
-  characterId,
-  YOUR_TEMPLATE,
-  "tweet_reply",
-  {
-    replyTo: "Original message",
-    tone: "casual",
-  },
-  {
-    temperature: 0.8, // Optional LLM-specific options
-  }
-);
-
-console.log(result.content); // The generated response
-console.log(result.metadata); // Response metadata and context
-```
-
-### Response Types
-
-#### Twitter
-
-- `tweet_create` - Original tweets
-- `tweet_reply` - Tweet replies
-- `tweet_thread` - Thread creation
-
-#### Discord
-
-- `discord_chat` - General chat
-- `discord_mod` - Moderation responses
-- `discord_help` - Help/support responses
-- `discord_welcome` - Welcome messages
-
-#### Telegram
-
-- `telegram_chat` - Direct messages
-- `telegram_group` - Group messages
-- `telegram_broadcast` - Channel posts
-
-#### Slack
-
-- `slack_chat` - General messages
-- `slack_thread` - Thread replies
-- `slack_channel` - Channel messages
-- `slack_dm` - Direct messages
-
-## Memory System
-
-```typescript
-// Add single memory
-await ai.addMemory(characterId, "Learned about quantum computing", {
-  type: "learning",
-  metadata: {
-    topic: "quantum_computing",
-    sentiment: 0.8,
-  },
-});
-
-// Batch add memories
-await ai.addMemoryBatch(characterId, [
-  { content: "Memory 1", type: "interaction" },
-  { content: "Memory 2", type: "achievement" },
-]);
-```
-
-## System Architecture
-
-The system uses a modular architecture with specialized managers:
-
-## Character Creation
-
-### From Chat History
-
-```typescript
-// Import chat messages
-const messages: ChatMessage[] = [
-  {
-    senderId: "user123",
-    senderName: "John Doe",
-    content: "Hello world!",
-    timestamp: new Date(),
-    metadata: {
-      reactions: [{ type: "like", count: 2, users: ["user1", "user2"] }],
-    },
-  },
-  // ... more messages
-];
-
-// Create character from chat history
-const character = await ai.createCharacterFromData({
-  data: messages,
-  type: "chat",
-  options: {
-    minConfidence: 0.6,
+const assistant = new ai({
+  databaseUrl: process.env.DATABASE_URL!,
+  llmConfig: {
+    apiKey: process.env.OPENAI_API_KEY!,
+    llm: { model: "gpt-4-turbo-preview", temperature: 0.7 },
+    analyzer: { model: "gpt-3.5-turbo", temperature: 0.3 },
   },
 });
 ```
 
-### From Twitter History
+## Example Usage
+
+### Character Management
 
 ```typescript
-// Import tweets
-const tweets: Tweet[] = [
-  {
-    id: "123456",
-    text: "Just launched our new product!",
-    created_at: "2024-03-18T12:00:00Z",
-    retweet_count: 50,
-    favorite_count: 100,
-    reply_count: 25,
-    user: {
-      id: "user123",
-      screen_name: "johndoe",
-      name: "John Doe",
-    },
-    entities: {
-      hashtags: [{ text: "launch" }],
-      user_mentions: [],
-    },
-  },
-  // ... more tweets
-];
+// Find or create character
+const characters = await assistant.db
+  .select()
+  .from(schema.characters)
+  .where(eq(schema.characters.name, "Ducky"));
 
-// Create character from tweets
-const character = await ai.createCharacterFromData({
-  data: tweets,
-  type: "tweet",
-  options: {
-    minConfidence: 0.6,
-  },
-});
-```
-
-### Character Analysis
-
-The system uses LLM-powered analysis to create rich character profiles from social data:
-
-- Personality trait detection
-- Communication style analysis
-- Topic preference identification
-- Platform-specific behavior patterns
-- Temporal activity patterns
-- Social interaction analysis
-
-````
-
-### Style Manager
-
-Handles response formatting and platform-specific styles:
-
-```typescript
-// Update platform-specific styles
-await ai.updatePlatformStyles(characterId, "twitter", {
-  enabled: true,
-  defaultTone: ["casual", "friendly"],
-  defaultGuidelines: ["Use hashtags sparingly"],
-  styles: {
-    tweet_create: {
-      enabled: true,
-      tone: ["engaging"],
-      formatting: {
-        maxLength: 280,
-        allowEmojis: true,
-      },
-      contextRules: ["Consider trends"],
-      examples: ["Example tweet"],
-      guidelines: ["Be concise"],
-    },
-  },
-});
-````
-
-### Memory Manager
-
-Handles memory storage and importance analysis:
-
-```typescript
-await ai.addMemory(characterId, content, {
-  type: "learning",
-  metadata: {
-    topic: "ai",
-    sentiment: 0.9,
-  },
-});
-```
-
-### LLM Manager
-
-Handles interactions with language models:
-
-```typescript
-const response = await ai.interact(
-  characterId,
-  template,
-  responseType,
-  context,
-  { temperature: 0.7 }
-);
-```
-
-## Environment Variables
-
-```env
-DATABASE_URL=your_database_url
-OPENAI_API_KEY=your_openai_key
-# Or for other providers
-ANTHROPIC_API_KEY=your_anthropic_key
-MISTRAL_API_KEY=your_mistral_key
-```
-
-## TypeScript Types
-
-```typescript
-import type {
-  Character,
-  Event,
-  Memory,
-  SocialRelation,
-  ResponseStyles,
-  StyleSettings,
-  AIConfig,
-  CreateCharacterInput,
-  Preferences,
-  Hobby,
-} from "@fatduckai/ai";
-```
-
-## Error Handling
-
-```typescript
-try {
-  await ai.interact(characterId, template, "tweet_reply", context);
-} catch (error) {
-  if (error instanceof AIValidationError) {
-    // Handle validation errors
-  } else if (error instanceof LLMError) {
-    // Handle LLM-related errors
-  }
+let character;
+if (characters.length > 0) {
+  character = characters[0];
+} else {
+  const duckyConfig = await createDuckyCharacter();
+  character = await assistant.createCharacter(duckyConfig);
 }
 ```
+
+### Platform-Specific Responses
+
+#### Twitter Interactions
+
+```typescript
+// Basic Tweet
+const twitterResponse = await assistant.interact(
+  {
+    system: "Create a thread analyzing BTC market conditions",
+    user: "Give me a spicy take on BTC price action",
+  },
+  {
+    characterId: character.id,
+    mode: "enhanced",
+    responseType: "tweet_thread",
+    tools: ["btc-price"],
+  }
+);
+
+// Reply to Tweet
+const replyResponse = await assistant.interact(
+  {
+    system: "Reply with signature sass",
+    user: "Responding to: 'Just bought the dip! 🚀'",
+  },
+  {
+    characterId: character.id,
+    mode: "enhanced",
+    responseType: "reply",
+    platform: "twitter",
+  }
+);
+```
+
+#### Discord Interactions
+
+```typescript
+// Technical Analysis
+const technicalAnalysis = await assistant.interact(
+  {
+    system: "Provide detailed technical analysis",
+    user: "Deep dive on BTC market structure",
+  },
+  {
+    characterId: character.id,
+    mode: "enhanced",
+    responseType: "technical_analysis",
+    platform: "discord",
+    tools: ["btc-price"],
+  }
+);
+
+// Alpha Calls
+const alphaCall = await assistant.interact(
+  {
+    system: "Share market alpha",
+    user: "What's your latest BTC alpha?",
+  },
+  {
+    characterId: character.id,
+    mode: "enhanced",
+    responseType: "alpha_calls",
+    platform: "discord",
+  }
+);
+
+// Meme Response
+const memeResponse = await assistant.interact(
+  {
+    system: "Create meme-worthy market commentary",
+    user: "Thoughts on leverage traders getting rekt?",
+  },
+  {
+    characterId: character.id,
+    responseType: "meme_response",
+    platform: "discord",
+  }
+);
+```
+
+### Different Interaction Modes
+
+```typescript
+// Raw Mode
+const rawResponse = await assistant.interact(
+  {
+    system: "You are a market analyst",
+    user: "Current BTC state?",
+  },
+  {
+    mode: "raw",
+    tools: ["btc-price"],
+  }
+);
+
+// Enhanced Mode
+const enhancedResponse = await assistant.interact(
+  {
+    system: "Analyze market conditions",
+    user: "Technical analysis please",
+  },
+  {
+    characterId: character.id,
+    mode: "enhanced",
+    responseType: "technical_analysis",
+  }
+);
+
+// Mixed Mode with Custom Injection
+const mixedResponse = await assistant.interact(
+  {
+    system: "Analyze market sentiment",
+    user: "Unfiltered market thoughts?",
+  },
+  {
+    characterId: character.id,
+    mode: "mixed",
+    platform: "discord",
+    responseType: "general_chat",
+    injections: {
+      injectPersonality: true,
+      injectStyle: false,
+      customInjections: [
+        {
+          name: "market_sentiment",
+          content: "You're feeling bearish but hiding it",
+          position: "before",
+        },
+      ],
+    },
+    tools: ["btc-price"],
+  }
+);
+```
+
+## Response Types
+
+### Twitter
+
+- `tweet_thread`: Multi-tweet analysis (max 280 chars each)
+- `reply`: Single tweet responses
+
+### Discord
+
+- `general_chat`: Casual conversation (max 1000 chars)
+- `technical_analysis`: Detailed market analysis
+- `alpha_calls`: Trading insights and calls
+- `meme_response`: Meme-worthy commentary
+
+## Character Configuration
+
+Characters can be configured with:
+
+- Base traits and personality
+- Platform-specific response styles
+- Formatting rules
+- Interaction guidelines
+
+See `createDuckyCharacter()` for a complete example of character configuration.
+
+## Tools Integration
+
+Tools can be used to fetch real-time data:
+
+```typescript
+const response = await assistant.interact(input, {
+  tools: ["btc-price"],
+  toolContext: {
+    /* optional context */
+  },
+});
+```
+
+## Development
+
+```bash
+# Run tests
+bun test
+
+# Run example
+bun run example/index.ts
+```
+
+## License
+
+MIT

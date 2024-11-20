@@ -46,6 +46,16 @@ export type CreateCharacterInput = {
     rules: string[];
     examples: string[];
   };
+  goals?: Array<{
+    description: string;
+    status?: "active" | "completed" | "paused";
+    progress?: number;
+    metadata?: {
+      dependencies?: string[];
+      completionCriteria?: string[];
+      notes?: string[];
+    };
+  }>;
 };
 
 export type CharacterUpdate = Partial<CreateCharacterInput> & {
