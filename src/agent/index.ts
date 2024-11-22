@@ -68,10 +68,10 @@ const instance = await ai.initialize({
   },
 });
 
-if (port === 8001) {
+/* if (port === 8001) {
   await new Promise((resolve) => setTimeout(resolve, 5000));
 
   await instance.sendP2PMessage(
     "Hey Ducky, lets code up some new ai tools for us to use in future prompts!"
   );
-}
+} */
