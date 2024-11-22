@@ -2,6 +2,24 @@ import { dbSchemas } from "@/db";
 
 export type Platform = (typeof dbSchemas.platformEnum.enumValues)[number];
 
+export interface CustomInjection {
+  name: string;
+  content: string;
+  position: "before" | "after" | "replace";
+}
+
+export interface InteractionDefaults {
+  mode: "enhanced";
+  platform: Platform;
+  responseType: string;
+  tools: string[];
+  injections: {
+    injectPersonality: boolean;
+    injectStyle: true;
+    customInjections: CustomInjection[];
+  };
+}
+
 export type CustomResponseType = `custom_${string}`;
 export type ResponseType =
   | (typeof dbSchemas.responseTypeEnum.enumValues)[number]

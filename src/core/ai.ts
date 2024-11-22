@@ -6,6 +6,7 @@ import { CharacterBuilder } from "@/create-character/builder";
 import { type ChatMessage, type Tweet } from "@/create-character/types";
 import { dbSchemas } from "@/db";
 import type { Character } from "@/db/schema/schema";
+import type { InteractionDefaults } from "@/types";
 import {
   type CharacterUpdate,
   type CreateCharacterInput,
@@ -29,6 +30,10 @@ export interface AIOptions {
   toolsDir?: string | "./ai/tools/";
   character: CreateCharacterInput;
   refreshCharacterOnRestart?: boolean;
+  platformDefaults?: {
+    telegram?: InteractionDefaults;
+    twitter?: InteractionDefaults;
+  };
   platforms?: {
     telegram?: {
       enabled: boolean;
@@ -51,7 +56,10 @@ export class ai {
   public character!: Character;
   public telegramClient?: TelegramClient;
   private queryClient?: postgres.Sql;
-
+  private platformDefaults?: {
+    telegram?: InteractionDefaults;
+    twitter?: InteractionDefaults;
+  };
   private isShuttingDown: boolean = false;
   constructor(options: AIOptions) {
     this.queryClient = postgres(options.databaseUrl, {
@@ -83,6 +91,7 @@ export class ai {
       this.eventService,
       this.llmManager
     );
+    this.platformDefaults = options.platformDefaults;
   }
 
   // Static factory method for creating a properly initialized instance
@@ -310,7 +319,7 @@ export class ai {
   }
 
   private createTelegramClient(token: string) {
-    return new TelegramClient(token, this);
+    return new TelegramClient(token, this, this.platformDefaults?.telegram);
   }
 
   async interact(
