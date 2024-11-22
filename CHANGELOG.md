@@ -1,5 +1,11 @@
 # @fatduckai/ai
 
+## 0.8.0
+
+### Minor Changes
+
+- 1430da3: added libp2p comms
+
 ## 0.7.2
 
 ### Patch Changes
