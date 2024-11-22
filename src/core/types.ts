@@ -91,6 +91,21 @@ export interface ILLMManager {
   preparePrompt(template: string, context: Record<string, any>): Promise<any[]>;
 }
 
+interface ImageGenerationMetadata {
+  prompt?: string;
+  settings?: {
+    model?: string;
+    size?: string;
+    quality?: string;
+  };
+  imageUrl?: string;
+  moderationScore?: number;
+  flaggedCategories?: string[];
+  stage?: "moderation" | "generation" | "delivery";
+  technicalDetails?: Record<string, any>;
+  url?: string;
+}
+
 export type InteractionEventType =
   | "interaction.started" // Initial interaction request
   | "interaction.completed" // Successful completion
@@ -104,7 +119,6 @@ export type InteractionEventType =
 export type InteractionEventPayload = {
   "interaction.started": {
     input: string;
-    characterId: string;
     responseType: string;
     platform: Platform;
     timestamp: string;
@@ -118,12 +132,12 @@ export type InteractionEventPayload = {
       username?: string;
       metadata?: Record<string, any>;
     };
+    imageGeneration?: ImageGenerationMetadata;
   };
 
   "interaction.completed": {
     input: string;
     response: string;
-    characterId: string;
     responseType: string;
     platform: Platform;
     processingTime: number;
@@ -142,11 +156,11 @@ export type InteractionEventPayload = {
       username?: string;
       metadata?: Record<string, any>;
     };
+    imageGeneration?: ImageGenerationMetadata;
   };
 
   "interaction.failed": {
     input: string;
-    characterId: string;
     error: string;
     errorCode?: string;
     timestamp: string;
@@ -160,10 +174,10 @@ export type InteractionEventPayload = {
       username?: string;
       metadata?: Record<string, any>;
     };
+    imageGeneration?: ImageGenerationMetadata;
   };
 
   "interaction.processed": {
-    characterId: string;
     input: string;
     messageId: string;
     timestamp: string;
@@ -177,10 +191,10 @@ export type InteractionEventPayload = {
       username?: string;
       metadata?: Record<string, any>;
     };
+    imageGeneration?: ImageGenerationMetadata;
   };
 
   "interaction.rate_limited": {
-    characterId: string;
     limit: number;
     resetTime: string;
     timestamp: string;
@@ -190,11 +204,11 @@ export type InteractionEventPayload = {
       username?: string;
       metadata?: Record<string, any>;
     };
+    imageGeneration?: ImageGenerationMetadata;
   };
 
   "interaction.invalid": {
     input: string;
-    characterId: string;
     reason: string;
     validationErrors?: string[];
     timestamp: string;
@@ -204,10 +218,10 @@ export type InteractionEventPayload = {
       username?: string;
       metadata?: Record<string, any>;
     };
+    imageGeneration?: ImageGenerationMetadata;
   };
 
   "interaction.cancelled": {
-    characterId: string;
     reason: string;
     timestamp: string;
     sessionId?: string;
@@ -217,10 +231,10 @@ export type InteractionEventPayload = {
       username?: string;
       metadata?: Record<string, any>;
     };
+    imageGeneration?: ImageGenerationMetadata;
   };
 
   "interaction.queued": {
-    characterId: string;
     queuePosition: number;
     estimatedProcessingTime?: number;
     timestamp: string;
@@ -230,6 +244,7 @@ export type InteractionEventPayload = {
       username?: string;
       metadata?: Record<string, any>;
     };
+    imageGeneration?: ImageGenerationMetadata;
   };
 };
 
@@ -372,4 +387,17 @@ export interface MessagePayload {
     promptTokens?: number;
     completionTokens?: number;
   };
+}
+
+export interface ImageGenerationOptions {
+  model?: string;
+  size?: string;
+  quality?: string;
+  numImages?: number;
+}
+
+export interface ImageGenerationResult {
+  success: boolean;
+  error?: string;
+  url?: string;
 }

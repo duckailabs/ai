@@ -46,7 +46,6 @@ export class ConversationManager {
         await this.eventService.createInteractionEvent(
           "interaction.processed",
           {
-            characterId: options.characterId,
             input: typeof input === "string" ? input : input.user,
             messageId: options.messageId,
             processingResults: { status: "skipped" },
@@ -87,7 +86,6 @@ export class ConversationManager {
         await this.eventService.createInteractionEvent(
           "interaction.processed",
           {
-            characterId: options.characterId,
             input: typeof input === "string" ? input : input.user,
             messageId: options.messageId,
             processingResults: { status: "skipped" },
@@ -151,7 +149,6 @@ export class ConversationManager {
       // Create started event
       await this.eventService.createInteractionEvent("interaction.started", {
         input: typeof input === "string" ? input : input.user,
-        characterId: options.characterId,
         responseType: options.responseType ?? "chat",
         platform: options.platform,
         timestamp: new Date().toISOString(),
@@ -179,7 +176,6 @@ export class ConversationManager {
       await this.eventService.createInteractionEvent("interaction.completed", {
         input: typeof input === "string" ? input : input.user,
         response: response.content,
-        characterId: options.characterId,
         responseType: options.responseType ?? "chat",
         platform: options.platform,
         processingTime: Date.now() - startTime,
@@ -198,7 +194,6 @@ export class ConversationManager {
     } catch (error) {
       await this.eventService.createInteractionEvent("interaction.failed", {
         input: typeof input === "string" ? input : input.user,
-        characterId: options.characterId,
         error: error instanceof Error ? error.message : "Unknown error",
         errorCode: error instanceof Error ? error.name : "UNKNOWN_ERROR",
         timestamp: new Date().toISOString(),

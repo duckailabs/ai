@@ -1,5 +1,5 @@
 import { CharacterManager } from "@/core/managers/character";
-import { LLMManager, type AIConfig } from "@/core/managers/llm";
+import { LLMManager, type LLMConfig } from "@/core/managers/llm";
 import { MemoryManager } from "@/core/managers/memory";
 import { StyleManager } from "@/core/managers/style";
 import { CharacterBuilder } from "@/create-character/builder";
@@ -19,6 +19,7 @@ import { drizzle, PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { ConversationManager } from "./managers/conversation";
 import { ToolManager } from "./managers/tools";
+import { APIServer, type ServerConfig } from "./platform/api/server";
 import { TelegramClient } from "./platform/telegram/telegram";
 import { EventService } from "./services/Event";
 import { InteractionService } from "./services/Interaction";
@@ -26,7 +27,7 @@ import type { InteractionOptions } from "./types";
 
 export interface AIOptions {
   databaseUrl: string;
-  llmConfig: AIConfig;
+  llmConfig: LLMConfig;
   toolsDir?: string | "./ai/tools/";
   character: CreateCharacterInput;
   refreshCharacterOnRestart?: boolean;
@@ -39,6 +40,15 @@ export interface AIOptions {
       enabled: boolean;
       token: string;
     };
+    api?: {
+      enabled: boolean;
+      port: number;
+      hostname?: string;
+      cors?: {
+        allowedOrigins: string[];
+      };
+      apiKey?: string;
+    };
   };
 }
 
@@ -46,15 +56,17 @@ export class ai {
   private characterManager: CharacterManager;
   private memoryManager: MemoryManager;
   private styleManager: StyleManager;
-  private llmManager: LLMManager;
+  public llmManager: LLMManager;
   private characterBuilder: CharacterBuilder;
   public db: PostgresJsDatabase<typeof dbSchemas>;
   private interactionService: InteractionService;
-  private eventService: EventService;
+  public eventService: EventService;
   private toolManager: ToolManager;
   private conversationManager: ConversationManager;
   public character!: Character;
   public telegramClient?: TelegramClient;
+  public apiServer?: APIServer;
+
   private queryClient?: postgres.Sql;
   private platformDefaults?: {
     telegram?: InteractionDefaults;
@@ -69,12 +81,12 @@ export class ai {
     });
     this.db = drizzle(this.queryClient, { schema: dbSchemas });
 
-    this.llmManager = new LLMManager(options.llmConfig);
     this.characterManager = new CharacterManager(this.db);
+    this.llmManager = new LLMManager(options.llmConfig, this.characterManager);
     this.characterBuilder = new CharacterBuilder(this.llmManager);
     this.memoryManager = new MemoryManager(this.db, this.llmManager);
     this.styleManager = new StyleManager(this.characterManager);
-    this.eventService = new EventService(this.db);
+    this.eventService = new EventService(this.db, this.characterManager);
     this.toolManager = new ToolManager({ toolsDir: options.toolsDir });
     this.interactionService = new InteractionService(
       this.db,
@@ -115,6 +127,17 @@ export class ai {
       instance.telegramClient = instance.createTelegramClient(token);
       await instance.telegramClient.start();
       console.log("Telegram client initialized successfully!");
+    } else {
+      console.log("Telegram client not enabled");
+    }
+
+    if (options.platforms?.api?.enabled) {
+      console.log("Initializing API server...");
+      instance.apiServer = instance.createAPIServer(options.platforms.api);
+      await instance.apiServer.start();
+      console.log("API server initialized successfully!");
+    } else {
+      console.log("API server not enabled");
     }
 
     instance.setupSignalHandlers();
@@ -173,6 +196,12 @@ export class ai {
     if (this.telegramClient) {
       console.log("Stopping Telegram client...");
       shutdownTasks.push(Promise.resolve(this.telegramClient.stop()));
+    }
+
+    // Stop API server if it exists
+    if (this.apiServer) {
+      console.log("Stopping API server...");
+      shutdownTasks.push(this.apiServer.stop());
     }
 
     // Close database connections
@@ -241,19 +270,16 @@ export class ai {
     try {
       console.log(`Looking for existing character: ${characterConfig.name}...`);
 
-      const existingCharacter = await this.db
+      const [existingCharacter] = await this.db
         .select()
         .from(dbSchemas.characters)
-        .where(eq(dbSchemas.characters.name, characterConfig.name))
-        .execute();
+        .where(eq(dbSchemas.characters.name, characterConfig.name));
 
-      if (existingCharacter && existingCharacter.length > 0) {
-        const foundCharacter = existingCharacter[0];
-
+      if (existingCharacter) {
         if (refresh) {
           console.log("Refreshing character configuration...");
           this.character = await this.characterManager.updateCharacter(
-            foundCharacter.id,
+            existingCharacter.id,
             {
               bio: characterConfig.bio,
               personalityTraits: characterConfig.personalityTraits,
@@ -265,7 +291,7 @@ export class ai {
           );
         } else {
           console.log("Using existing character without refresh");
-          this.character = foundCharacter;
+          this.character = existingCharacter;
         }
       } else {
         console.log("No existing character found, creating new one...");
@@ -320,6 +346,10 @@ export class ai {
 
   private createTelegramClient(token: string) {
     return new TelegramClient(token, this, this.platformDefaults?.telegram);
+  }
+
+  private createAPIServer(config: ServerConfig) {
+    return new APIServer(this, config);
   }
 
   async interact(
