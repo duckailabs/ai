@@ -26,7 +26,7 @@
     "baseUrl": "./",
     "paths": {
       "@/*": ["src/*"]
-    },
-    "ignore": ["src/example/ai/tools"]
-  }
+    }
+  },
+  "exclude": ["src/example/ai/tools"]
 }
