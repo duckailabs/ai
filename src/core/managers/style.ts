@@ -1,5 +1,5 @@
 import { CharacterManager } from "@/core/managers/character";
-import * as schema from "@/db/schema";
+import type { Character } from "@/db/schema/schema";
 import type {
   CustomResponseType,
   Platform,
@@ -115,7 +115,7 @@ export class StyleManager {
   }
 
   async buildStyleContext(
-    character: schema.Character,
+    character: Character,
     styleSettings: StyleSettings,
     userContext: Record<string, any>
   ) {

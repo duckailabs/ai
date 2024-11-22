@@ -2,6 +2,7 @@ import type { Preferences, ResponseStyles } from "@/types";
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  integer,
   jsonb,
   numeric,
   pgEnum,
@@ -72,6 +73,18 @@ export const responseTypeEnum = pgEnum("response_type", [
   "slack_dm",
 ]);
 
+// In your db/schema file where other pgEnums are defined
+export const interactionEventEnum = pgEnum("interaction_event_type", [
+  "interaction.started",
+  "interaction.completed",
+  "interaction.failed",
+  "interaction.rate_limited",
+  "interaction.invalid",
+  "interaction.cancelled",
+  "interaction.processed",
+  "interaction.queued",
+]);
+
 export type ConversationStyle =
   (typeof conversationStyleEnum.enumValues)[number];
 
@@ -97,8 +110,13 @@ export const characters = pgTable("characters", {
   name: varchar("name", { length: 255 }).notNull(),
   bio: text("bio").notNull(),
   personalityTraits: jsonb("personality_traits").$type<string[]>().notNull(),
+  onchain: jsonb("onchain").$type<{
+    [key: string]: string;
+  }>(),
   generalGuidelines: jsonb("general_guidelines").$type<string[]>().default([]),
-
+  identity: jsonb("identity").$type<{
+    [key: string]: string | string[];
+  }>(),
   // Add responseStyles
   responseStyles: jsonb("response_styles")
     .$type<ResponseStyles>()
@@ -158,7 +176,7 @@ export const socialRelations = pgTable("social_relations", {
     .references(() => characters.id, { onDelete: "cascade" }),
   userId: varchar("user_id", { length: 255 }).notNull(),
   status: relationshipStatusEnum("status").notNull().default("neutral"),
-  interactionCount: numeric("interaction_count").notNull().default("0"),
+  interactionCount: integer("interaction_count").notNull().default(0),
   sentiment: numeric("sentiment").notNull().default("0"),
   lastInteraction: timestamp("last_interaction")
     .notNull()
@@ -207,7 +225,9 @@ export const events = pgTable("events", {
   characterId: uuid("character_id")
     .notNull()
     .references(() => characters.id, { onDelete: "cascade" }),
-  type: varchar("type", { length: 255 }).notNull(),
+  type: interactionEventEnum("interaction_event_type")
+    .default("interaction.started")
+    .notNull(),
   payload: jsonb("payload").notNull(),
   metadata: jsonb("metadata")
     .$type<{
@@ -257,6 +277,37 @@ export const relations = {
     goals: [],
   },
 } as const;
+
+// Group tier management
+export const groupTierEnum = pgEnum("group_tier", ["permanent", "temporary"]);
+
+export const telegramGroups = pgTable("telegram_groups", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  telegramId: varchar("telegram_id", { length: 255 }).notNull().unique(),
+  tier: groupTierEnum("tier").notNull().default("temporary"),
+  isActive: boolean("is_active").notNull().default(true),
+  settings: jsonb("settings")
+    .$type<{
+      allowCommands: boolean;
+      adminUserIds: string[];
+    }>()
+    .default({ allowCommands: true, adminUserIds: [] }),
+  metadata: jsonb("metadata")
+    .$type<{
+      title: string;
+      joinedAt: Date;
+      addedBy: string;
+      memberCount?: number;
+      lastActive: Date;
+    }>()
+    .notNull(),
+  createdAt: timestamp("created_at")
+    .notNull()
+    .default(sql`now()`),
+  updatedAt: timestamp("updated_at")
+    .notNull()
+    .default(sql`now()`),
+});
 
 // Export types
 export type Character = typeof characters.$inferSelect;

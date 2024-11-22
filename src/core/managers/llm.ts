@@ -87,6 +87,7 @@ Consider:
 3. Emotional weight
 4. Knowledge value
 5. Relationship importance
+6. Direct reference to the character
 
 Context provided:
 ${Object.entries(context)
