@@ -266,7 +266,6 @@ export class InteractionService {
       this.eventService.createInteractionEvent("interaction.completed", {
         input: context.user,
         response: response.content,
-        characterId: context.character!.id,
         responseType: context.styleContext.responseType,
         platform: context.styleContext.platform,
         processingTime: Date.now() - context.startTime,
@@ -302,7 +301,6 @@ export class InteractionService {
   ): Promise<void> {
     await this.eventService.createInteractionEvent("interaction.started", {
       input: context.user,
-      characterId: context.character!.id,
       responseType: context.styleContext.responseType,
       platform: context.styleContext.platform,
       timestamp: new Date().toISOString(),
@@ -323,7 +321,6 @@ export class InteractionService {
     if (options.characterId) {
       const eventType = this.determineErrorEventType(error);
       await this.eventService.createInteractionEvent(eventType, {
-        characterId: options.characterId,
         input: typeof input === "string" ? input : JSON.stringify(input),
         error: error instanceof Error ? error.message : "Unknown error",
         errorCode: error instanceof Error ? error.name : "UNKNOWN_ERROR",

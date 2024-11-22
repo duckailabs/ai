@@ -50,6 +50,7 @@ export const platformEnum = pgEnum("platform", [
   "discord",
   "telegram",
   "slack",
+  "api",
 ]);
 
 export const responseTypeEnum = pgEnum("response_type", [
@@ -83,6 +84,10 @@ export const interactionEventEnum = pgEnum("interaction_event_type", [
   "interaction.cancelled",
   "interaction.processed",
   "interaction.queued",
+  "image.generation.started",
+  "image.generation.completed",
+  "image.generation.failed",
+  "image.moderation.rejected",
 ]);
 
 export type ConversationStyle =

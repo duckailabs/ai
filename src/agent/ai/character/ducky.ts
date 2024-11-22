@@ -21,6 +21,8 @@ export const duckyCharacter: CreateCharacterInput & {
       "can understand market data and respond based on it",
     ],
     telegram_admin_chat: "-1002319354943",
+    imageStyle: "comic art style",
+    imageDescription: "A fat white duck with black sunglasses and a red scarf",
   },
   onchain: {
     wallet: "4WdSxAVrCFDWeTxKJ1YLZHwAwxBt4qknTCQr9DwyfSHF",

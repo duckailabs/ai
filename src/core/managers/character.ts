@@ -4,19 +4,31 @@ import {
   type CreateCharacterInput,
   type ResponseStyles,
 } from "@/types";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 
 export class CharacterManager {
   constructor(private db: PostgresJsDatabase<typeof dbSchemas>) {}
 
-  async getCharacter(id: string) {
-    const [character] = await this.db
+  async getCharacter(id?: string) {
+    if (id) {
+      const [character] = await this.db
+        .select()
+        .from(dbSchemas.characters)
+        .where(eq(dbSchemas.characters.id, id));
+      return character;
+    }
+
+    const [defaultCharacter] = await this.db
       .select()
       .from(dbSchemas.characters)
-      .where(sql`id = ${id}`);
+      .limit(1);
 
-    return character;
+    if (!defaultCharacter) {
+      throw new Error("No default character found");
+    }
+
+    return defaultCharacter;
   }
 
   async createCharacter(input: CreateCharacterInput) {

@@ -1,7 +1,9 @@
 import { OpenAI } from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
+import type { ImageGenerationResult } from "../types";
+import type { CharacterManager } from "./character";
 
-export interface AIConfig {
+export interface LLMConfig {
   apiKey: string;
   baseURL?: string;
   llm: {
@@ -12,9 +14,20 @@ export interface AIConfig {
     model: string;
     temperature?: number;
   };
+  imageGeneration?: {
+    model?: string;
+    moderationModel?: string;
+    style?: string;
+    description?: string;
+  };
 }
 
-const DEFAULT_CONFIG: Partial<AIConfig> = {
+export interface ModerationResult {
+  isAppropriate: boolean;
+  reason: string;
+}
+
+const DEFAULT_CONFIG: Partial<LLMConfig> = {
   llm: {
     model: "gpt-4-turbo-preview",
     temperature: 0.7,
@@ -23,13 +36,18 @@ const DEFAULT_CONFIG: Partial<AIConfig> = {
     model: "gpt-3.5-turbo",
     temperature: 0.3,
   },
+  imageGeneration: {
+    model: "black-forest-labs/FLUX.1.1-pro",
+    moderationModel: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+  },
 };
 
 export class LLMManager {
   private openai: OpenAI;
-  private config: AIConfig;
+  private config: LLMConfig;
+  private characterManager: CharacterManager;
 
-  constructor(config: AIConfig) {
+  constructor(config: LLMConfig, characterManager: CharacterManager) {
     this.config = {
       ...DEFAULT_CONFIG,
       ...config,
@@ -41,6 +59,8 @@ export class LLMManager {
       apiKey: this.config.apiKey,
       baseURL: this.config.baseURL,
     });
+
+    this.characterManager = characterManager;
   }
 
   async generateResponse(
@@ -70,6 +90,107 @@ export class LLMManager {
     } catch (error) {
       console.error("Error generating response:", error);
       throw error;
+    }
+  }
+
+  async moderateContent(text: string): Promise<ModerationResult> {
+    try {
+      const completion = await this.openai.chat.completions.create({
+        model: this.config.imageGeneration?.moderationModel!,
+        messages: [
+          {
+            role: "system",
+            content:
+              'You are a content moderator. Analyze the following text for inappropriate content including: explicit material, violence, hate speech, or other unsafe content. Respond with a JSON object containing \'isAppropriate\' (boolean) and \'reason\' (string if inappropriate). Example response: {"isAppropriate": true} or {"isAppropriate": false, "reason": "Contains violent content"}',
+          },
+          {
+            role: "user",
+            content: text,
+          },
+        ],
+        response_format: { type: "json_object" },
+      });
+
+      const content = completion.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("No content received from moderation API");
+      }
+
+      const result = JSON.parse(content);
+      if (typeof result.isAppropriate !== "boolean") {
+        throw new Error(
+          "Invalid response format: missing isAppropriate boolean"
+        );
+      }
+
+      return {
+        isAppropriate: result.isAppropriate,
+        reason: result.reason,
+      };
+    } catch (error) {
+      console.error("Error in content moderation:", error);
+      return {
+        isAppropriate: false,
+        reason: `Moderation check failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      };
+    }
+  }
+
+  async generateImage(text: string): Promise<ImageGenerationResult> {
+    try {
+      // First moderate the content
+      const moderationResult = await this.moderateContent(text);
+
+      if (!moderationResult.isAppropriate) {
+        return {
+          success: false,
+          error: `Content moderation failed: ${moderationResult.reason}`,
+        };
+      }
+
+      // Get character settings if characterId is provided
+      let style = this.config.imageGeneration?.style;
+      let description = this.config.imageGeneration?.description;
+
+      console.log("Getting character");
+      const character = await this.characterManager.getCharacter();
+      if (character?.identity) {
+        style = (character.identity.imageStyle as string) || style;
+        description =
+          (character.identity.imageDescription as string) || description;
+      }
+
+      // Construct the safe prompt using config defaults
+      const safePrompt = `${description} and ${text}. In a ${style}`.trim();
+      `${this.config.imageGeneration?.description} and ${text}. In a ${this.config.imageGeneration?.style}`.trim();
+      console.log("safePrompt", safePrompt);
+
+      const response = await this.openai.images.generate({
+        prompt: safePrompt,
+        model: this.config.imageGeneration?.model,
+        n: 1,
+      });
+
+      const imageUrl = response.data[0]?.url;
+
+      if (!imageUrl) {
+        throw new Error("No image URL received from API");
+      }
+
+      return {
+        success: true,
+        url: imageUrl,
+      };
+    } catch (error) {
+      console.error("Error generating image:", error);
+      return {
+        success: false,
+        error: `Image generation failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      };
     }
   }
 
