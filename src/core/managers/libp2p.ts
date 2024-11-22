@@ -6,12 +6,12 @@ import { identify, identifyPush } from "@libp2p/identify";
 import { tcp } from "@libp2p/tcp";
 import { multiaddr } from "@multiformats/multiaddr";
 import chalk from "chalk";
+import crypto from "crypto";
 import { createLibp2p } from "libp2p";
 import { createWalletClient, custom, type WalletClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import type { InteractionOptions } from "../types";
 import type { CharacterManager } from "./character";
-
 // Console logging utility
 export const log = {
   info: (message: string, data?: any) => {
