@@ -1,5 +1,11 @@
 # @fatduckai/ai
 
+## 0.7.1
+
+### Patch Changes
+
+- cc05927: fix tools
+
 ## 0.7.0
 
 ### Minor Changes
