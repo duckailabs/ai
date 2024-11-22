@@ -1,5 +1,11 @@
 # @fatduckai/ai
 
+## 0.8.1
+
+### Patch Changes
+
+- fac2aad: fix bug
+
 ## 0.8.0
 
 ### Minor Changes
