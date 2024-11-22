@@ -1,5 +1,11 @@
 # @fatduckai/ai
 
+## 0.7.2
+
+### Patch Changes
+
+- 51f8039: added iamge
+
 ## 0.7.1
 
 ### Patch Changes
