@@ -2,6 +2,7 @@ import { ai } from "@/core/ai";
 import dotenv from "dotenv";
 import path from "path";
 import { duckyCharacter } from "./ai/character/ducky";
+import { config } from "./ai/config";
 dotenv.config();
 
 console.log("Initializing agent ducky007...");
@@ -27,5 +28,9 @@ await ai.initialize({
       enabled: true,
       token: process.env.TELEGRAM_BOT_TOKEN!,
     },
+  },
+  platformDefaults: {
+    telegram: config.telegram,
+    twitter: config.twitter,
   },
 });
