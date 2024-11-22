@@ -1,5 +1,16 @@
 # @fatduckai/ai
 
+## 0.7.0
+
+### Minor Changes
+
+- 738c5ce: working tg
+- cd07c26: working interactions
+
+### Patch Changes
+
+- 09e8ee3: fix ts issue
+
 ## 0.6.0
 
 ### Minor Changes
