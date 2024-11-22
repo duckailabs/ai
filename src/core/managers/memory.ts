@@ -10,6 +10,7 @@ export class MemoryManager {
 
   async addMemory(
     characterId: string,
+    response: string,
     content: string,
     options: {
       importance?: number;
@@ -21,7 +22,10 @@ export class MemoryManager {
     try {
       const importance =
         options.importance ??
-        (await this.llmManager.analyzeImportance(content, options.context));
+        (await this.llmManager.analyzeImportance(
+          "User: " + content + "\n\n Ducky: " + response,
+          options.context
+        ));
 
       if (importance > 0.2) {
         const [memory] = await this.db
@@ -55,7 +59,7 @@ export class MemoryManager {
     }
   }
 
-  async addMemoryBatch(
+  /* async addMemoryBatch(
     characterId: string,
     memories: Array<{
       content: string;
@@ -77,5 +81,5 @@ export class MemoryManager {
     );
 
     return results.filter(Boolean);
-  }
+  } */
 }

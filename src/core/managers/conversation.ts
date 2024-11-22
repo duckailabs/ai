@@ -38,7 +38,6 @@ export class ConversationManager {
   ): Promise<InteractionResult | null> {
     const startTime = Date.now();
     const sessionId = crypto.randomUUID();
-
     try {
       // Get or validate group
       const group = await this.getGroup(options.chatId);

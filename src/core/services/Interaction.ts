@@ -209,7 +209,6 @@ export class InteractionService {
         ...llmContext,
         user: context.user,
       });
-      console.log("messages", messages);
       // Generate the response with the configured settings
       const response = await this.llmManager.generateResponse(messages, {
         temperature: options.temperature ?? 0.7,
@@ -282,16 +281,21 @@ export class InteractionService {
           username: options.username,
         },
       }),
-      this.memoryManager.addMemory(context.character!.id, response.content, {
-        type: "interaction",
-        context: context.styleContext,
-        metadata: {
-          responseType: context.styleContext.responseType,
-          platform: context.styleContext.platform,
-          userInput: context.user,
-          sessionId: context.sessionId,
-        },
-      }),
+      this.memoryManager.addMemory(
+        context.character!.id,
+        response.content,
+        context.user,
+        {
+          type: "interaction",
+          context: context.styleContext,
+          metadata: {
+            responseType: context.styleContext.responseType,
+            platform: context.styleContext.platform,
+            userInput: context.user,
+            sessionId: context.sessionId,
+          },
+        }
+      ),
     ]);
   }
 
