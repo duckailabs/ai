@@ -83,6 +83,7 @@
     "@types/figlet": "^1.7.0",
     "bun-types": "latest",
     "drizzle-kit": "^0.28.1",
+    "tsx": "^4.19.2",
     "typescript": "^5.3.3"
   }
 }
