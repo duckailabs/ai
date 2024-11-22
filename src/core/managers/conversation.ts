@@ -4,6 +4,7 @@
  */
 import type { dbSchemas } from "@/db";
 import { events, socialRelations, telegramGroups } from "@/db/schema/schema";
+import crypto from "crypto";
 import { and, desc, eq, sql } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { EventService } from "../services/Event";
@@ -16,7 +17,6 @@ import type {
   MessageEvent,
 } from "../types";
 import type { LLMManager } from "./llm";
-
 export class ConversationManager {
   private activeConversations = new Map<string, ConversationState>();
   private readonly MIN_REPLY_DELAY_MS = 500;

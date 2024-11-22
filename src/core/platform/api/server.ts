@@ -1,8 +1,8 @@
 import type { Platform } from "@/types";
 import type { Server } from "bun";
+import crypto from "crypto";
 import type { ai } from "../../ai";
 import { ImageManager } from "../../managers/image";
-
 export interface ServerConfig {
   enabled: boolean;
   port: number;

@@ -2,7 +2,7 @@
   "compilerOptions": {
     // Enable latest features
     "types": ["node"],
-    "lib": ["ESNext", "DOM"],
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "target": "ESNext",
     "module": "ESNext",
     "moduleDetection": "force",
