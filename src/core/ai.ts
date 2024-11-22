@@ -18,6 +18,7 @@ import { eq } from "drizzle-orm";
 import { drizzle, PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { ConversationManager } from "./managers/conversation";
+import { log, P2PNetwork } from "./managers/libp2p";
 import { ToolManager } from "./managers/tools";
 import { APIServer, type ServerConfig } from "./platform/api/server";
 import { TelegramClient } from "./platform/telegram/telegram";
@@ -49,6 +50,12 @@ export interface AIOptions {
       };
       apiKey?: string;
     };
+    p2p?: {
+      enabled: boolean;
+      privateKey: string;
+      initialPeers: string[];
+      port: number;
+    };
   };
 }
 
@@ -66,7 +73,7 @@ export class ai {
   public character!: Character;
   public telegramClient?: TelegramClient;
   public apiServer?: APIServer;
-
+  public p2pNetwork?: P2PNetwork;
   private queryClient?: postgres.Sql;
   private platformDefaults?: {
     telegram?: InteractionDefaults;
@@ -122,22 +129,69 @@ export class ai {
 
     // Initialize platforms if configured
     if (options.platforms?.telegram?.enabled) {
-      console.log("Initializing Telegram client...");
+      log.info("Initializing Telegram client...");
       const { token } = options.platforms.telegram;
       instance.telegramClient = instance.createTelegramClient(token);
       await instance.telegramClient.start();
-      console.log("Telegram client initialized successfully!");
+      log.info("Telegram client initialized successfully!");
     } else {
-      console.log("Telegram client not enabled");
+      log.info("Telegram client not enabled");
     }
 
     if (options.platforms?.api?.enabled) {
-      console.log("Initializing API server...");
+      log.info("Initializing API server...");
       instance.apiServer = instance.createAPIServer(options.platforms.api);
       await instance.apiServer.start();
-      console.log("API server initialized successfully!");
+      log.info("API server initialized successfully!");
     } else {
-      console.log("API server not enabled");
+      log.info("API server not enabled");
+    }
+
+    if (options.platforms?.p2p?.enabled) {
+      log.info("Initializing P2P network...");
+      const version = "0.0.1";
+
+      const stripped_metadata = {
+        creators: Array.isArray(options.character.identity?.creators)
+          ? options.character.identity.creators[0]
+          : "",
+        tokenAddress:
+          typeof options.character.onchain?.duckaiTokenAddress === "string"
+            ? options.character.onchain.duckaiTokenAddress
+            : "",
+      };
+
+      // Create minimal p2p config
+      const stripped_config = {
+        port: Number(options.platforms.p2p.port),
+        initialPeers: Array.isArray(options.platforms.p2p.initialPeers)
+          ? options.platforms.p2p.initialPeers.filter(
+              (p: string) => typeof p === "string"
+            )
+          : [],
+      };
+
+      try {
+        instance.p2pNetwork = new P2PNetwork(
+          options.platforms.p2p.privateKey,
+          String(options.character.name || "unnamed"),
+          version,
+          stripped_metadata,
+          instance.interact.bind(instance),
+          instance.characterManager,
+          options.platformDefaults?.telegram
+        );
+
+        await instance.p2pNetwork.start(
+          stripped_config.port,
+          stripped_config.initialPeers
+        );
+      } catch (error) {
+        console.error("Failed to initialize P2P network:", error);
+        // Optionally handle the error differently or continue without P2P
+      }
+    } else {
+      log.info("P2P network not enabled");
     }
 
     instance.setupSignalHandlers();
@@ -170,16 +224,16 @@ export class ai {
 
   private async handleShutdown(signal: string) {
     if (this.isShuttingDown) {
-      console.log("Shutdown already in progress...");
+      log.info("Shutdown already in progress...");
       return;
     }
 
     this.isShuttingDown = true;
-    console.log(`\nReceived ${signal}. Starting graceful shutdown...`);
+    log.info(`\nReceived ${signal}. Starting graceful shutdown...`);
 
     try {
       await this.stop();
-      console.log("Graceful shutdown completed.");
+      log.info("Graceful shutdown completed.");
       process.exit(0);
     } catch (error) {
       console.error("Error during shutdown:", error);
@@ -188,26 +242,32 @@ export class ai {
   }
 
   public async stop() {
-    console.log("Stopping AI services...");
+    log.info("Stopping AI services...");
 
     const shutdownTasks: Promise<void>[] = [];
 
     // Stop Telegram client if it exists
     if (this.telegramClient) {
-      console.log("Stopping Telegram client...");
+      log.info("Stopping Telegram client...");
       shutdownTasks.push(Promise.resolve(this.telegramClient.stop()));
     }
 
     // Stop API server if it exists
     if (this.apiServer) {
-      console.log("Stopping API server...");
+      log.info("Stopping API server...");
       shutdownTasks.push(this.apiServer.stop());
     }
 
     // Close database connections
     if (this.queryClient) {
-      console.log("Closing database connections...");
+      log.info("Closing database connections...");
       shutdownTasks.push(this.queryClient.end());
+    }
+
+    // Add P2P shutdown
+    if (this.p2pNetwork) {
+      log.info("Stopping P2P network...");
+      shutdownTasks.push(this.p2pNetwork.stop());
     }
 
     try {
@@ -268,7 +328,7 @@ export class ai {
     refresh?: boolean
   ) {
     try {
-      console.log(`Looking for existing character: ${characterConfig.name}...`);
+      log.info(`Looking for existing character: ${characterConfig.name}...`);
 
       const [existingCharacter] = await this.db
         .select()
@@ -277,7 +337,7 @@ export class ai {
 
       if (existingCharacter) {
         if (refresh) {
-          console.log("Refreshing character configuration...");
+          log.info("Refreshing character configuration...");
           this.character = await this.characterManager.updateCharacter(
             existingCharacter.id,
             {
@@ -290,11 +350,11 @@ export class ai {
             }
           );
         } else {
-          console.log("Using existing character without refresh");
+          log.info("Using existing character without refresh");
           this.character = existingCharacter;
         }
       } else {
-        console.log("No existing character found, creating new one...");
+        log.info("No existing character found, creating new one...");
         this.character = await this.characterManager.createCharacter(
           characterConfig
         );
@@ -306,11 +366,7 @@ export class ai {
         );
       }
 
-      console.log("Character initialized:", {
-        id: this.character.id,
-        name: this.character.name,
-        updatedAt: this.character.updatedAt,
-      });
+      log.info(`Character initialized: ${this.character.id}`);
     } catch (error) {
       console.error("Error in initializeCharacter:", error);
       throw error;
@@ -357,5 +413,14 @@ export class ai {
     options: InteractionOptions
   ) {
     return this.conversationManager.handleMessage(input, options);
+  }
+
+  public async sendP2PMessage(content: string, toAgentId?: string) {
+    if (!this.p2pNetwork) {
+      throw new Error("P2P network not initialized");
+    }
+    const messageId = await this.p2pNetwork.sendMessage(content, toAgentId);
+    log.sent(`[SENDING MESSAGE] ${content}\n`);
+    return messageId;
   }
 }

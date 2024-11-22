@@ -120,7 +120,7 @@ export class CharacterManager {
 
     await tx.insert(dbSchemas.events).values({
       characterId,
-      type: "character:created",
+      type: "interaction.completed",
       payload: {
         timestamp: new Date().toISOString(),
       },
