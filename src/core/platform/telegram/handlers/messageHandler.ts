@@ -101,7 +101,6 @@ export class MessageHandler {
       responseType: "telegram_chat",
       characterId,
     };
-    console.log("defaultOptions", defaultOptions);
 
     const chatHistory = this.promptService.formatChatHistory(message.chat.id);
 

@@ -1,6 +1,9 @@
 import type { ai } from "@/core/ai";
+import { ImageManager } from "@/core/managers/image";
 import type { InteractionDefaults } from "@/types";
 import { Context, Telegraf } from "telegraf";
+import { message } from "telegraf/filters";
+import { ImageHandler } from "./handlers/imageHandler";
 import { MessageHandler } from "./handlers/messageHandler";
 
 export class TelegramClient {
@@ -8,8 +11,9 @@ export class TelegramClient {
   private messageHandler: MessageHandler;
   private readonly MAX_MESSAGE_LENGTH = 4096;
   private readonly PROCESSING_TIMEOUT = 30000;
-  private processingMessages: Map<number, number> = new Map(); // userId -> timestamp
+  private processingMessages: Map<number, number> = new Map();
   private isRunning: boolean = false;
+  private imageHandler: ImageHandler;
 
   constructor(
     token: string,
@@ -18,13 +22,14 @@ export class TelegramClient {
   ) {
     this.bot = new Telegraf(token);
     this.messageHandler = new MessageHandler(ai, defaults);
+    const imageManager = new ImageManager(ai.llmManager, ai.eventService);
+    this.imageHandler = new ImageHandler(imageManager, ai);
     this.setupMiddleware();
     this.setupHandlers();
   }
 
   public async start() {
     try {
-      // Start the bot non-blocking
       this.bot
         .launch()
         .then(() => {
@@ -36,7 +41,6 @@ export class TelegramClient {
           this.isRunning = false;
         });
 
-      // Enable graceful stop
       process.once("SIGINT", () => this.stop());
       process.once("SIGTERM", () => this.stop());
     } catch (error) {
@@ -54,13 +58,11 @@ export class TelegramClient {
   }
 
   private setupMiddleware() {
-    // Add access control middleware
     this.bot.use(async (ctx, next) => {
       try {
         const chatId = ctx.chat?.id.toString();
         if (!chatId) return;
 
-        // Reject private chats for now
         if (!chatId.startsWith("-")) {
           return;
         }
@@ -71,27 +73,15 @@ export class TelegramClient {
           return;
         }
 
-        // For admin chat, allow everything
         if (chatId === adminChatId) {
           return next();
         }
-
-        /*     // For other groups, only allow if they exist and are active in DB
-          const group = await this.ai.db
-            .select()
-            .from(telegramGroups)
-            .where(eq(telegramGroups.telegramId, chatId))
-            .limit(1)
-            .then(rows => rows[0] || null);
-
-          // If group not in DB or not active, leave the chat */
 
         try {
           await ctx.leaveChat();
         } catch (error) {
           console.error("Failed to leave chat:", error);
         }
-        return;
       } catch (error) {
         console.error("Middleware error:", error);
       }
@@ -99,50 +89,84 @@ export class TelegramClient {
   }
 
   private setupHandlers() {
-    // Handle text messages
-    this.bot.on("text", async (ctx) => {
+    this.registerCommands();
+
+    this.bot.on(message("text"), async (ctx) => {
+      if (ctx.message.text.startsWith("/")) {
+        console.log("Command detected:", ctx.message.text);
+        return;
+      }
+      if (ctx.message.text.startsWith("/")) return;
+
       try {
         const userId = ctx.from?.id;
-        if (!userId) return;
-
-        // Check if already processing
-        if (this.isProcessing(userId)) {
+        if (!userId || this.isProcessing(userId)) {
           await ctx.reply(
             "Still processing your previous message! Please wait..."
           );
           return;
         }
 
-        // Set processing state
         this.setProcessing(userId);
-
-        // Show typing indicator
         await ctx.sendChatAction("typing");
 
-        // Process message
         const response = await this.messageHandler.handle(
           ctx,
           this.ai.character.id
         );
-
         if (response) {
-          // Handle long messages
           await this.sendResponse(ctx, response);
         }
       } catch (error) {
         await this.handleError(ctx, error);
       } finally {
-        // Clear processing state
         if (ctx.from?.id) {
           this.clearProcessing(ctx.from.id);
         }
       }
     });
 
-    // Error handling
     this.bot.catch((error: any) => {
       console.error("Telegram bot error:", error);
     });
+  }
+
+  private registerCommands() {
+    console.log("registering commands");
+    this.bot.command("img", async (ctx) => {
+      console.log("here");
+      const prompt = ctx.message.text.split(" ").slice(1).join(" ").trim();
+
+      if (!prompt) {
+        await ctx.reply("Please provide an image description after /img");
+        return;
+      }
+
+      try {
+        await ctx.reply("🎨 Generating your fat duck...");
+        await ctx.sendChatAction("upload_photo");
+        await this.imageHandler.handleImageGeneration(ctx);
+      } catch (error) {
+        await this.handleError(ctx, error);
+      }
+    });
+
+    this.bot.command("help", (ctx) => {
+      const helpText = [
+        "*Available Commands:*",
+        "• `/img <description>` - Generate an image",
+        "",
+        "*Examples:*",
+        "• `/img a serene mountain landscape at sunset`",
+      ].join("\n");
+
+      return ctx.reply(helpText, { parse_mode: "Markdown" });
+    });
+
+    this.bot.telegram.setMyCommands([
+      { command: "img", description: "Generate an image from description" },
+      { command: "help", description: "Show available commands" },
+    ]);
   }
 
   private async sendResponse(ctx: Context, text: string) {
@@ -152,14 +176,12 @@ export class TelegramClient {
         return;
       }
 
-      // Split long messages
       const chunks = this.splitMessage(text);
       for (const chunk of chunks) {
         await ctx.reply(chunk, { parse_mode: "Markdown" });
-        await new Promise((resolve) => setTimeout(resolve, 100)); // Small delay between chunks
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
     } catch (error) {
-      // Fallback to plain text if markdown fails
       await ctx.reply(text.replace(/[*_`\[\]]/g, ""));
     }
   }

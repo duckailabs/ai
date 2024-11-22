@@ -1,9 +1,13 @@
 import { dbSchemas } from "@/db";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
+import type { CharacterManager } from "../managers/character";
 import type { InteractionEventPayload, InteractionEventType } from "../types";
 
 export class EventService {
-  constructor(private db: PostgresJsDatabase<typeof dbSchemas>) {}
+  constructor(
+    private db: PostgresJsDatabase<typeof dbSchemas>,
+    private characterManager: CharacterManager
+  ) {}
 
   async createEvents(
     events: Array<{
@@ -35,11 +39,12 @@ export class EventService {
     type: T,
     payload: InteractionEventPayload[T]
   ) {
+    const character = await this.characterManager.getCharacter();
     try {
       const result = await this.db
         .insert(dbSchemas.events)
         .values({
-          characterId: payload.characterId,
+          characterId: character?.id,
           type,
           payload,
           metadata: {
@@ -54,7 +59,7 @@ export class EventService {
     } catch (error) {
       console.error("Error creating interaction event:", {
         type,
-        characterId: payload.characterId,
+        characterId: character.id,
         error:
           error instanceof Error
             ? {
