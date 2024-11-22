@@ -1,3 +1,4 @@
+import { duckyCharacter } from "@/agent/ai/character/ducky";
 import { ai } from "@/core/ai";
 import chalk from "chalk";
 import { Command } from "commander";
@@ -46,6 +47,7 @@ class CharacterCLI {
         },
       },
       toolsDir: "./src/tools", // Add tools directory
+      character: duckyCharacter,
     });
 
     this.setupCommander();
@@ -255,6 +257,10 @@ class CharacterCLI {
               userInput: input,
               timestamp: new Date().toISOString(),
             },
+            userId: "ducky007",
+            platform: "slack",
+            chatId: "ducky007",
+            messageId: "ducky007",
           });
 
           console.log(
