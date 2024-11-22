@@ -1,10 +1,10 @@
-import { platformEnum, responseTypeEnum } from "@/db/schema";
+import { dbSchemas } from "@/db";
 
-export type Platform = (typeof platformEnum.enumValues)[number];
+export type Platform = (typeof dbSchemas.platformEnum.enumValues)[number];
 
 export type CustomResponseType = `custom_${string}`;
 export type ResponseType =
-  | (typeof responseTypeEnum.enumValues)[number]
+  | (typeof dbSchemas.responseTypeEnum.enumValues)[number]
   | CustomResponseType;
 
 export interface StyleSettings {

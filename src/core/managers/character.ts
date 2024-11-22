@@ -1,4 +1,4 @@
-import * as schema from "@/db";
+import { dbSchemas } from "@/db";
 import {
   type CharacterUpdate,
   type CreateCharacterInput,
@@ -8,12 +8,12 @@ import { eq, sql } from "drizzle-orm";
 import { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 
 export class CharacterManager {
-  constructor(private db: PostgresJsDatabase<typeof schema>) {}
+  constructor(private db: PostgresJsDatabase<typeof dbSchemas>) {}
 
   async getCharacter(id: string) {
     const [character] = await this.db
       .select()
-      .from(schema.characters)
+      .from(dbSchemas.characters)
       .where(sql`id = ${id}`);
 
     return character;
@@ -47,10 +47,14 @@ export class CharacterManager {
             generalLikes: [],
             generalDislikes: [],
           },
+          personalityTraits: [],
+          onchain: null,
+          generalGuidelines: null,
+          updatedAt: new Date(),
         };
 
         const [character] = await tx
-          .insert(schema.characters)
+          .insert(dbSchemas.characters)
           .values({
             ...defaultValues,
             ...input,
@@ -75,12 +79,12 @@ export class CharacterManager {
       }
 
       const [updated] = await this.db
-        .update(schema.characters)
+        .update(dbSchemas.characters)
         .set({
           ...update,
           updatedAt: new Date(),
         })
-        .where(eq(schema.characters.id, id))
+        .where(eq(dbSchemas.characters.id, id))
         .returning();
 
       return updated;
@@ -91,7 +95,7 @@ export class CharacterManager {
   }
 
   private async initializeCharacter(tx: any, characterId: string) {
-    await tx.insert(schema.memories).values({
+    await tx.insert(dbSchemas.memories).values({
       characterId,
       type: "learning",
       content: "Character initialization",
@@ -102,7 +106,7 @@ export class CharacterManager {
       },
     });
 
-    await tx.insert(schema.events).values({
+    await tx.insert(dbSchemas.events).values({
       characterId,
       type: "character:created",
       payload: {
@@ -117,7 +121,7 @@ export class CharacterManager {
 
     const character = await this.getCharacter(characterId);
     if (character?.hobbies?.length) {
-      await tx.insert(schema.goals).values(
+      await tx.insert(dbSchemas.goals).values(
         character.hobbies.map((hobby) => ({
           characterId,
           description: `Develop expertise in ${hobby.name}`,

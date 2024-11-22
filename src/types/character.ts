@@ -31,10 +31,16 @@ export type Preferences = {
 export type CreateCharacterInput = {
   name: string;
   bio: string;
+  onchain?: {
+    [key: string]: string;
+  };
   personalityTraits: string[];
   hobbies?: Hobby[];
   preferences?: Preferences;
   responseStyles?: ResponseStyles;
+  identity?: {
+    [key: string]: string | string[];
+  };
   styles?: {
     [key: string]: {
       rules: string[];
