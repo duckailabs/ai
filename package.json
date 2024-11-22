@@ -32,6 +32,25 @@
   },
   "version": "0.8.0",
   "type": "module",
+  "tsx": {
+    "nodeModules": [
+      "crypto",
+      "path",
+      "fs",
+      "os",
+      "util",
+      "events",
+      "stream",
+      "buffer",
+      "querystring",
+      "url",
+      "http",
+      "https",
+      "net",
+      "tls",
+      "zlib"
+    ]
+  },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
