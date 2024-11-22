@@ -6,7 +6,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import figlet from "figlet";
 import postgres from "postgres";
 import readline from "readline";
-import * as schema from "../db/schema";
+import * as schema from "../db/schema/schema";
 
 config();
 
@@ -259,7 +259,7 @@ class CharacterCLI {
 
           console.log(
             chalk.green(
-              `\n${chalk.bold(character.name)}: ${response.content}\n`
+              `\n${chalk.bold(character.name)}: ${response?.content}\n`
             )
           );
           askQuestion();

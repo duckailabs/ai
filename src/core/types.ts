@@ -1,4 +1,4 @@
-import type { Character } from "@/db";
+import type { Character } from "@/db/schema/schema";
 import type {
   CharacterUpdate,
   CreateCharacterInput,
@@ -106,9 +106,18 @@ export type InteractionEventPayload = {
     input: string;
     characterId: string;
     responseType: string;
-    platform: string;
+    platform: Platform;
     timestamp: string;
     sessionId?: string;
+    messageId: string;
+    replyTo?: string;
+    hasMention?: boolean;
+    user: {
+      id: string;
+      platform_specific_id?: string;
+      username?: string;
+      metadata?: Record<string, any>;
+    };
   };
 
   "interaction.completed": {
@@ -116,14 +125,22 @@ export type InteractionEventPayload = {
     response: string;
     characterId: string;
     responseType: string;
-    platform: string;
+    platform: Platform;
     processingTime: number;
     timestamp: string;
     sessionId?: string;
+    messageId: string;
+    replyTo?: string;
     metrics?: {
       tokenCount: number;
       promptTokens: number;
       completionTokens: number;
+    };
+    user: {
+      id: string;
+      platform_specific_id?: string;
+      username?: string;
+      metadata?: Record<string, any>;
     };
   };
 
@@ -134,7 +151,32 @@ export type InteractionEventPayload = {
     errorCode?: string;
     timestamp: string;
     sessionId?: string;
+    messageId: string;
     attemptCount?: number;
+    stage?: string;
+    user: {
+      id: string;
+      platform_specific_id?: string;
+      username?: string;
+      metadata?: Record<string, any>;
+    };
+  };
+
+  "interaction.processed": {
+    characterId: string;
+    input: string;
+    messageId: string;
+    timestamp: string;
+    sessionId?: string;
+    processingResults: Record<string, any>;
+    decision: string;
+    reason?: string;
+    user: {
+      id: string;
+      platform_specific_id?: string;
+      username?: string;
+      metadata?: Record<string, any>;
+    };
   };
 
   "interaction.rate_limited": {
@@ -142,6 +184,12 @@ export type InteractionEventPayload = {
     limit: number;
     resetTime: string;
     timestamp: string;
+    user: {
+      id: string;
+      platform_specific_id?: string;
+      username?: string;
+      metadata?: Record<string, any>;
+    };
   };
 
   "interaction.invalid": {
@@ -150,6 +198,12 @@ export type InteractionEventPayload = {
     reason: string;
     validationErrors?: string[];
     timestamp: string;
+    user: {
+      id: string;
+      platform_specific_id?: string;
+      username?: string;
+      metadata?: Record<string, any>;
+    };
   };
 
   "interaction.cancelled": {
@@ -157,13 +211,12 @@ export type InteractionEventPayload = {
     reason: string;
     timestamp: string;
     sessionId?: string;
-  };
-
-  "interaction.processed": {
-    characterId: string;
-    processingResults: Record<string, any>;
-    timestamp: string;
-    sessionId?: string;
+    user: {
+      id: string;
+      platform_specific_id?: string;
+      username?: string;
+      metadata?: Record<string, any>;
+    };
   };
 
   "interaction.queued": {
@@ -171,6 +224,12 @@ export type InteractionEventPayload = {
     queuePosition: number;
     estimatedProcessingTime?: number;
     timestamp: string;
+    user: {
+      id: string;
+      platform_specific_id?: string;
+      username?: string;
+      metadata?: Record<string, any>;
+    };
   };
 };
 
@@ -188,10 +247,41 @@ export interface InteractionResult {
 }
 
 export interface InteractionOptions {
-  characterId?: string;
+  userId: string;
+  username?: string;
+  platform: Platform;
+  chatId: string;
+  characterId: string;
+  messageId: string;
+  replyTo?: string;
+  hasMention?: boolean;
+  mode?: InteractionMode;
   temperature?: number;
-  [key: string]: any;
+  maxTokens?: number;
+  responseType?: string;
+  tools?: string[];
+  toolContext?: Record<string, any>;
+  sessionId?: string;
+  context?: Record<string, any>;
+  injections?: {
+    injectPersonality?: boolean;
+    injectOnchain?: boolean;
+    injectStyle?: boolean;
+    injectIdentity?: boolean;
+    customInjections?: Array<{
+      name: string;
+      content: string;
+      position: "before" | "after" | "replace";
+    }>;
+  };
 }
+
+export type InteractionInput =
+  | string
+  | {
+      system: string;
+      user: string;
+    };
 
 // Core configuration types
 export interface AIOptions {
@@ -221,3 +311,65 @@ export type InteractionMode =
   | "raw" // Pure prompt without character/style injection
   | "enhanced" // Full character personality and style injection
   | "mixed"; // Selective injection based on user preferences
+
+export interface ConversationConfig {
+  platforms: {
+    [key: string]: {
+      triggerWord?: string;
+      maxMessages: number;
+      timeoutMinutes: number;
+    };
+  };
+}
+
+export interface ConversationContext {
+  platform: string;
+  userId: string;
+  chatId: string;
+  message: string;
+  characterId: string;
+  conversationId: string;
+}
+
+export interface ConversationParams {
+  characterId: string;
+  userId: string;
+  platform: Platform;
+  chatId: string;
+  message: string;
+}
+
+// Types for conversation state
+export interface ConversationState {
+  lastDuckyMessage?: Date;
+  activeParticipants: Set<string>;
+  messageCount: number;
+  lastMessageTime: Date;
+  currentTopic?: string;
+}
+
+export interface MessageEvent {
+  id: string;
+  chatId: string;
+  messageId: string;
+  senderId: string;
+  content: string;
+  timestamp: Date;
+  replyToId?: string;
+  hasMention: boolean;
+  isFromDucky: boolean;
+}
+
+export interface MessagePayload {
+  input: string;
+  messageId: string;
+  replyTo?: string;
+  hasMention: boolean;
+  response?: string;
+  processingTime?: number;
+  metrics?: {
+    tokenCount?: number;
+    promptTokens?: number;
+    completionTokens?: number;
+  };
+}

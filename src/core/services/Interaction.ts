@@ -1,4 +1,5 @@
-import * as schema from "@/db";
+import { dbSchemas } from "@/db";
+import type { Character } from "@/db/schema/schema";
 import type {
   LLMResponse,
   Platform,
@@ -14,7 +15,6 @@ import type { StyleManager } from "../managers/style";
 import type { ToolManager } from "../managers/tools";
 import type {
   InteractionEventType,
-  InteractionMode,
   InteractionOptions,
   InteractionResult,
 } from "../types";
@@ -23,7 +23,8 @@ import { EventService } from "./Event";
 interface PromptContext {
   system: string;
   user: string;
-  character: schema.Character | null;
+  character: Character | null;
+  messageId: string;
   styleContext: {
     responseType: ResponseType;
     platform: Platform;
@@ -35,7 +36,7 @@ interface PromptContext {
 
 export class InteractionService {
   constructor(
-    private db: PostgresJsDatabase<typeof schema>,
+    private db: PostgresJsDatabase<typeof dbSchemas>,
     private characterManager: CharacterManager,
     private styleManager: StyleManager,
     private llmManager: LLMManager,
@@ -46,20 +47,7 @@ export class InteractionService {
 
   async handleInteraction(
     input: string | { system: string; user: string },
-    options: InteractionOptions & {
-      mode?: InteractionMode;
-      tools?: string[];
-      toolContext?: Record<string, any>;
-      injections?: {
-        injectPersonality?: boolean;
-        injectStyle?: boolean;
-        customInjections?: Array<{
-          name: string;
-          content: string;
-          position: "before" | "after" | "replace";
-        }>;
-      };
-    }
+    options: InteractionOptions
   ): Promise<InteractionResult> {
     return this.db.transaction(async (tx) => {
       try {
@@ -82,7 +70,7 @@ export class InteractionService {
 
         // Create start event if we have a character
         if (context.character) {
-          await this.createStartEvent(context);
+          await this.createStartEvent(context, options);
         }
 
         // Generate and process response
@@ -94,7 +82,7 @@ export class InteractionService {
 
         // Handle completion tasks
         if (context.character) {
-          await this.handleCompletion(response, context);
+          await this.handleCompletion(response, context, options);
         }
 
         return this.formatResult(
@@ -113,12 +101,17 @@ export class InteractionService {
 
   private async buildFinalPrompt(
     context: PromptContext,
-    options: any,
+    options: InteractionOptions,
     toolResults: Record<string, ToolResult>
   ): Promise<string> {
     let finalSystem = context.system;
 
     if (context.character) {
+      finalSystem = await this.injectCharacterInfo(
+        finalSystem,
+        context.character
+      );
+
       // Default both injections to true unless explicitly set to false
       if (options.injections?.injectPersonality !== false) {
         finalSystem = await this.injectPersonality(
@@ -130,6 +123,12 @@ export class InteractionService {
       if (options.injections?.injectStyle !== false) {
         finalSystem = await this.injectStyle(finalSystem, context.styleContext);
       }
+      if (
+        options.injections?.injectOnchain !== false &&
+        context.character.onchain
+      ) {
+        finalSystem = await this.injectOnchain(finalSystem, context.character);
+      }
     }
 
     if (options.injections?.customInjections) {
@@ -137,6 +136,13 @@ export class InteractionService {
         finalSystem,
         options.injections.customInjections
       );
+    }
+
+    if (
+      options.injections?.injectIdentity !== false &&
+      context.character?.identity
+    ) {
+      finalSystem = await this.injectIdentity(finalSystem, context.character);
     }
 
     // Inject tool results if any exist
@@ -173,6 +179,7 @@ export class InteractionService {
         styleContext,
         sessionId: crypto.randomUUID(),
         startTime: Date.now(),
+        messageId: options.messageId,
       };
 
       return context;
@@ -252,7 +259,8 @@ export class InteractionService {
   }
   private async handleCompletion(
     response: LLMResponse,
-    context: PromptContext
+    context: PromptContext,
+    options: InteractionOptions
   ): Promise<void> {
     await Promise.all([
       this.eventService.createInteractionEvent("interaction.completed", {
@@ -262,12 +270,17 @@ export class InteractionService {
         responseType: context.styleContext.responseType,
         platform: context.styleContext.platform,
         processingTime: Date.now() - context.startTime,
+        messageId: context.messageId,
         timestamp: new Date().toISOString(),
         sessionId: context.sessionId,
         metrics: {
           tokenCount: response.metadata?.usage?.totalTokens || 0,
           promptTokens: response.metadata?.usage?.promptTokens || 0,
           completionTokens: response.metadata?.usage?.completionTokens || 0,
+        },
+        user: {
+          id: options.userId,
+          username: options.username,
         },
       }),
       this.memoryManager.addMemory(context.character!.id, response.content, {
@@ -283,7 +296,10 @@ export class InteractionService {
     ]);
   }
 
-  private async createStartEvent(context: PromptContext): Promise<void> {
+  private async createStartEvent(
+    context: PromptContext,
+    options: InteractionOptions
+  ): Promise<void> {
     await this.eventService.createInteractionEvent("interaction.started", {
       input: context.user,
       characterId: context.character!.id,
@@ -291,12 +307,17 @@ export class InteractionService {
       platform: context.styleContext.platform,
       timestamp: new Date().toISOString(),
       sessionId: context.sessionId,
+      messageId: context.messageId,
+      user: {
+        id: options.userId,
+        username: options.username,
+      },
     });
   }
 
   private async handleError(
     error: unknown,
-    options: any,
+    options: InteractionOptions,
     input: string | { system: string; user: string }
   ): Promise<void> {
     if (options.characterId) {
@@ -307,7 +328,12 @@ export class InteractionService {
         error: error instanceof Error ? error.message : "Unknown error",
         errorCode: error instanceof Error ? error.name : "UNKNOWN_ERROR",
         timestamp: new Date().toISOString(),
-        sessionId: crypto.randomUUID(),
+        sessionId: options.sessionId,
+        messageId: options.messageId,
+        user: {
+          id: options.userId,
+          username: options.username,
+        },
       });
     }
   }
@@ -367,13 +393,45 @@ export class InteractionService {
     };
   }
 
+  private async injectCharacterInfo(
+    system: string,
+    character: Character
+  ): Promise<string> {
+    return `${system}\n\nCharacter Information:\n- Name: ${character.name}\n \
+    - Bio: ${character.bio}`;
+  }
+
   private async injectPersonality(
     system: string,
-    character: schema.Character
+    character: Character
   ): Promise<string> {
     return `You are ${
       character.name
     }.\n\nPersonality: ${character.personalityTraits.join(", ")}\n\n${system}`;
+  }
+
+  private async injectIdentity(
+    system: string,
+    character: Character
+  ): Promise<string> {
+    if (!character.identity) return system;
+
+    // Convert identity object to readable format
+    const identityInfo = Object.entries(character.identity)
+      .map(([key, value]) => {
+        const formattedKey = key
+          .replace(/([A-Z])/g, " $1")
+          .replace(/^./, (str) => str.toUpperCase())
+          .trim();
+
+        // Handle both string and array values
+        const formattedValue = Array.isArray(value) ? value.join(", ") : value;
+
+        return `- ${formattedKey}: ${formattedValue}`;
+      })
+      .join("\n");
+
+    return `${system}\n\nIdentity Information:\n${identityInfo}`;
   }
 
   private async injectStyle(
@@ -413,6 +471,30 @@ export class InteractionService {
     }
 
     return system + injection;
+  }
+
+  private async injectOnchain(
+    system: string,
+    character: Character
+  ): Promise<string> {
+    if (!character.onchain || typeof character.onchain !== "object") {
+      return system;
+    }
+
+    // Build onchain information dynamically
+    const onchainInfo = Object.entries(character.onchain)
+      .map(([key, value]) => {
+        // Convert camelCase to Title Case with spaces
+        const formattedKey = key
+          .replace(/([A-Z])/g, " $1") // Add space before capital letters
+          .replace(/^./, (str) => str.toUpperCase()) // Capitalize first letter
+          .trim();
+
+        return `- ${formattedKey}: ${value}`;
+      })
+      .join("\n");
+
+    return `${system}\n\nOnchain Information:\n${onchainInfo}`;
   }
 
   private async handleCustomInjections(
@@ -459,7 +541,7 @@ export class InteractionService {
 
   private formatResult(
     response: LLMResponse,
-    character: schema.Character | null,
+    character: Character | null,
     styleContext: {
       responseType: ResponseType;
       platform: Platform;

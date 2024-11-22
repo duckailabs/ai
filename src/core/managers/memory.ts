@@ -1,10 +1,10 @@
 import { LLMManager } from "@/core/managers/llm";
-import * as schema from "@/db";
+import { dbSchemas } from "@/db";
 import { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 
 export class MemoryManager {
   constructor(
-    private db: PostgresJsDatabase<typeof schema>,
+    private db: PostgresJsDatabase<typeof dbSchemas>,
     private llmManager: LLMManager
   ) {}
 
@@ -25,7 +25,7 @@ export class MemoryManager {
 
       if (importance > 0.2) {
         const [memory] = await this.db
-          .insert(schema.memories)
+          .insert(dbSchemas.memories)
           .values({
             characterId,
             type: (options.type || "interaction") as

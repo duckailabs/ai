@@ -1,20 +1,20 @@
-import * as schema from "@/db";
+import { dbSchemas } from "@/db";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import type { InteractionEventPayload, InteractionEventType } from "../types";
 
 export class EventService {
-  constructor(private db: PostgresJsDatabase<typeof schema>) {}
+  constructor(private db: PostgresJsDatabase<typeof dbSchemas>) {}
 
   async createEvents(
-    events: {
+    events: Array<{
       characterId: string;
-      type: string;
+      type: InteractionEventType; // Updated type
       payload: Record<string, any>;
       metadata?: Record<string, any>;
-    }[]
+    }>
   ) {
     return this.db
-      .insert(schema.events)
+      .insert(dbSchemas.events)
       .values(
         events.map((event) => ({
           characterId: event.characterId,
@@ -37,7 +37,7 @@ export class EventService {
   ) {
     try {
       const result = await this.db
-        .insert(schema.events)
+        .insert(dbSchemas.events)
         .values({
           characterId: payload.characterId,
           type,
