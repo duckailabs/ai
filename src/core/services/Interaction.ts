@@ -7,6 +7,7 @@ import type {
   StyleSettings,
 } from "@/types";
 import type { ToolResult } from "@/types/tools";
+import crypto from "crypto";
 import { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import type { CharacterManager } from "../managers/character";
 import type { LLMManager } from "../managers/llm";
