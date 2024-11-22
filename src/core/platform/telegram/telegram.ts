@@ -1,4 +1,5 @@
 import type { ai } from "@/core/ai";
+import type { InteractionDefaults } from "@/types";
 import { Context, Telegraf } from "telegraf";
 import { MessageHandler } from "./handlers/messageHandler";
 
@@ -10,9 +11,13 @@ export class TelegramClient {
   private processingMessages: Map<number, number> = new Map(); // userId -> timestamp
   private isRunning: boolean = false;
 
-  constructor(token: string, private ai: ai) {
+  constructor(
+    token: string,
+    private ai: ai,
+    private defaults?: InteractionDefaults
+  ) {
     this.bot = new Telegraf(token);
-    this.messageHandler = new MessageHandler(ai);
+    this.messageHandler = new MessageHandler(ai, defaults);
     this.setupMiddleware();
     this.setupHandlers();
   }

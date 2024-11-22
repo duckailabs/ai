@@ -1,4 +1,5 @@
 import type { ai } from "@/core/ai";
+import type { InteractionDefaults } from "@/types";
 import { Context } from "telegraf";
 import type { Message } from "telegraf/types";
 import { PromptService } from "../PromptService";
@@ -18,12 +19,7 @@ export class MessageHandler {
     new Map();
   private promptService: PromptService;
 
-  constructor(
-    private ai: ai,
-    private interactionConfig?: {
-      config: (platform: "telegram" | "twitter") => any;
-    }
-  ) {
+  constructor(private ai: ai, private defaults?: InteractionDefaults) {
     this.setupCleanupInterval();
     this.promptService = new PromptService();
   }
@@ -99,19 +95,21 @@ export class MessageHandler {
     characterId: string
   ) {
     // Get default options either from config or use basic defaults
-    const defaultOptions = this.interactionConfig?.config("telegram") || {
+    const defaultOptions = this.defaults || {
       mode: "enhanced" as const,
       platform: "telegram" as const,
       responseType: "telegram_chat",
       characterId,
     };
+    console.log("defaultOptions", defaultOptions);
 
     const chatHistory = this.promptService.formatChatHistory(message.chat.id);
 
     // Complete the options with required fields
     const interactionOptions = {
       ...defaultOptions,
-      userId: message.from?.id.toString(),
+      characterId,
+      userId: message.from?.id.toString() || "",
       chatId: message.chat.id.toString(),
       messageId: message.message_id.toString(),
       username: message.from?.username,

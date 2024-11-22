@@ -1,28 +1,11 @@
-export type Platform = "telegram" | "twitter";
+import type { InteractionDefaults } from "@/types";
 
-export interface CustomInjection {
-  name: string;
-  content: string;
-  position: "before" | "after" | "replace";
-}
-
-export interface InteractionDefaults {
-  mode: "enhanced";
-  characterId: string;
-  platform: Platform;
-  responseType: string;
-  tools: string[];
-  injections: {
-    injectPersonality: boolean;
-    injectStyle: true;
-    customInjections: CustomInjection[];
-  };
-}
-
-export const config = {
-  telegram: (characterId: string): InteractionDefaults => ({
+export const config: {
+  telegram: InteractionDefaults;
+  twitter: InteractionDefaults;
+} = {
+  telegram: {
     mode: "enhanced",
-    characterId,
     platform: "telegram",
     responseType: "telegram_chat",
     tools: ["btc-price"],
@@ -44,11 +27,10 @@ export const config = {
         },
       ],
     },
-  }),
+  },
 
-  twitter: (characterId: string): InteractionDefaults => ({
+  twitter: {
     mode: "enhanced",
-    characterId,
     platform: "twitter",
     responseType: "tweet_create",
     tools: ["btc-price"],
@@ -63,5 +45,5 @@ export const config = {
         },
       ],
     },
-  }),
+  },
 };
