@@ -375,14 +375,12 @@ export class InteractionService {
       responseType
     );
 
-    // Get the character to access responseStyles
     const character = await this.characterManager.getCharacter(
       options.characterId
     );
     if (!character) throw new Error("Character not found");
 
-    // Get actual style settings using StyleManager
-    const styleSettings = this.styleManager.getStyleSettings(
+    const styleSettings = await this.styleManager.getStyleSettings(
       character.responseStyles,
       platform,
       responseType
@@ -391,7 +389,7 @@ export class InteractionService {
     return {
       responseType,
       platform,
-      styleSettings, // Now contains the actual settings from configuration
+      styleSettings,
     };
   }
 

@@ -1,3 +1,4 @@
+import type { QuantumPersonalityConfig } from "@/core/types";
 import type { ResponseStyles } from "./style";
 
 export type CharacterTrait = {
@@ -62,6 +63,7 @@ export type CreateCharacterInput = {
       notes?: string[];
     };
   }>;
+  quantumPersonality?: QuantumPersonalityConfig;
 };
 
 export type CharacterUpdate = Partial<CreateCharacterInput> & {

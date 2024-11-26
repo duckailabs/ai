@@ -1,7 +1,14 @@
+import type { Character } from "@/db/schema/schema";
 import { OpenAI } from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import type { ImageGenerationResult } from "../types";
+import { log } from "../utils/logger";
 import type { CharacterManager } from "./character";
+import { QuantumStateManager } from "./quantum";
+import {
+  QuantumPersonalityMapper,
+  type QuantumPersonalitySettings,
+} from "./quantum-personality";
 
 export interface LLMConfig {
   apiKey: string;
@@ -46,36 +53,127 @@ export class LLMManager {
   private openai: OpenAI;
   private config: LLMConfig;
   private characterManager: CharacterManager;
+  private quantumStateManager?: QuantumStateManager;
+  private quantumPersonalityMapper?: QuantumPersonalityMapper;
+  private character?: Character;
 
-  constructor(config: LLMConfig, characterManager: CharacterManager) {
-    this.config = {
-      ...DEFAULT_CONFIG,
-      ...config,
-      llm: { ...DEFAULT_CONFIG.llm, ...config.llm },
-      analyzer: { ...DEFAULT_CONFIG.analyzer, ...config.analyzer },
-    };
+  constructor(
+    config: LLMConfig & { quantumPersonalityMapper?: QuantumPersonalityMapper },
+    characterManager: CharacterManager,
+    quantumStateManager?: QuantumStateManager,
+    character?: Character
+  ) {
+    this.config = config;
+    this.characterManager = characterManager;
+    this.quantumStateManager = quantumStateManager;
+    this.quantumPersonalityMapper = config.quantumPersonalityMapper;
+    this.character = character;
 
     this.openai = new OpenAI({
       apiKey: this.config.apiKey,
       baseURL: this.config.baseURL,
     });
 
-    this.characterManager = characterManager;
+    if (this.quantumPersonalityMapper) {
+      log.warn("LLM Manager initialized with quantum personality mapper");
+    }
   }
 
   async generateResponse(
     messages: ChatCompletionMessageParam[],
     options?: Record<string, any>
   ) {
-    if (!messages || messages.length === 0) {
-      throw new Error("Messages array cannot be empty");
-    }
-
     try {
+      let temperature = this.config.llm.temperature ?? 0.7;
+      let personalitySettings: QuantumPersonalitySettings | undefined;
+
+      if (this.quantumPersonalityMapper) {
+        personalitySettings =
+          await this.quantumPersonalityMapper.mapQuantumToPersonality();
+        temperature = personalitySettings.temperature;
+        log.warn("Using quantum personality settings:", {
+          temperature,
+          traits: personalitySettings.personalityTraits,
+          modifiers: personalitySettings.styleModifiers,
+        });
+      }
+
+      // Get character's base personality and style settings
+      const character = await this.characterManager.getCharacter();
+      const baseSettings = character?.responseStyles?.default ?? {
+        tone: [],
+        personality: [],
+        guidelines: [],
+      };
+
+      // Merge base settings with quantum settings
+      const mergedSettings = {
+        tone: [
+          ...new Set([
+            ...baseSettings.tone,
+            ...(personalitySettings?.styleModifiers.tone ?? []),
+          ]),
+        ],
+        personality: [
+          ...new Set([
+            ...baseSettings.personality,
+            ...(personalitySettings?.personalityTraits ?? []),
+          ]),
+        ],
+        guidelines: [
+          ...new Set([
+            ...baseSettings.guidelines,
+            ...(personalitySettings?.styleModifiers.guidelines ?? []),
+          ]),
+        ],
+      };
+
+      // Construct system message with merged settings
+      const systemMessage = messages.find((m) => m.role === "system");
+      if (systemMessage && typeof systemMessage.content === "string") {
+        const enhancedSystemPrompt = `
+You are ${character?.name ?? "an AI assistant"}.
+
+Personality traits: ${mergedSettings.personality.join(", ")}
+Tone: ${mergedSettings.tone.join(", ")}
+
+Core Guidelines:
+${character.responseStyles.default.guidelines.map((g) => `- ${g}`).join("\n")}
+
+Platform Guidelines:
+${character.responseStyles.platforms.telegram?.defaultGuidelines
+  .map((g) => `- ${g}`)
+  .join("\n")}
+
+Dynamic Guidelines:
+${mergedSettings.guidelines
+  .filter(
+    (g) =>
+      !character.responseStyles.default.guidelines.includes(g) &&
+      !character.responseStyles.platforms.telegram?.defaultGuidelines.includes(
+        g
+      )
+  )
+  .map((g) => `- ${g}`)
+  .join("\n")}
+
+Base instruction: ${systemMessage.content}
+`;
+
+        /* log.warn("Final prompt construction:", {
+          systemPrompt: enhancedSystemPrompt,
+          temperature,
+          mergedSettings,
+        }); */
+
+        // Update the system message with enhanced prompt
+        systemMessage.content = enhancedSystemPrompt;
+      }
+
       const response = await this.openai.chat.completions.create({
         model: this.config.llm.model,
-        temperature: this.config.llm.temperature,
         messages,
+        temperature,
         ...options,
       });
 
@@ -85,6 +183,8 @@ export class LLMManager {
           model: response.model,
           usage: response.usage,
           finishReason: response.choices[0].finish_reason,
+          temperature,
+          personalitySettings: mergedSettings,
         },
       };
     } catch (error) {

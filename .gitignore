@@ -100,6 +100,7 @@ web_modules/
 
 # dotenv environment variable files
 
+src/core/config/*
 .env
 .env2
 .env.development.local
@@ -174,3 +175,7 @@ dist
 
 # Finder (MacOS) folder config
 .DS_Store
+
+
+./src/core/config/Ducky.json
+./src/core/config/Test.json
