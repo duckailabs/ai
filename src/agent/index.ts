@@ -65,7 +65,7 @@ const instance = await ai.initialize({
   quantum: {
     enabled: true,
     checkInitialState: false,
-    cronSchedule: "0 * * * *", // 1 hour
+    cronSchedule: "0 */4 * * *", // 2 hours
     ibmConfig: {
       apiToken: process.env.IBM_QUANTUM_API_TOKEN!,
       backend: "ibm_brisbane",
