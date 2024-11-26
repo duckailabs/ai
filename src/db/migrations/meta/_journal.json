@@ -57,6 +57,20 @@
       "when": 1732309520757,
       "tag": "0007_useful_darwin",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1732624784877,
+      "tag": "0008_lean_machine_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1732638464629,
+      "tag": "0009_lowly_the_watchers",
+      "breakpoints": true
     }
   ]
 }

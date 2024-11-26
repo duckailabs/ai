@@ -1,5 +1,5 @@
 import { ai } from "@/core/ai";
-import { log } from "@/core/managers/libp2p";
+import { log } from "@/core/utils/logger";
 import dotenv from "dotenv";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
@@ -60,6 +60,16 @@ const instance = await ai.initialize({
           : [
               "/ip4/127.0.0.1/tcp/8001/p2p/12D3KooWSWxvpnKXT8aNXKbxuGEmhQWHzo16PRKtTk3R2ga9vtns",
             ],
+    },
+  },
+  quantum: {
+    enabled: true,
+    checkInitialState: false,
+    cronSchedule: "0 * * * *", // 1 hour
+    ibmConfig: {
+      apiToken: process.env.IBM_QUANTUM_API_TOKEN!,
+      backend: "ibm_brisbane",
+      timeout: 30000,
     },
   },
   platformDefaults: {

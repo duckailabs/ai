@@ -9,9 +9,13 @@ import type {
   ResponseType,
   StyleSettings,
 } from "@/types";
+import { QuantumPersonalityMapper } from "./quantum-personality";
 
 export class StyleManager {
-  constructor(private characterManager: CharacterManager) {}
+  constructor(
+    private characterManager: CharacterManager,
+    private quantumPersonalityMapper?: QuantumPersonalityMapper
+  ) {}
 
   async updatePlatformStyles(
     characterId: string,
@@ -60,17 +64,31 @@ export class StyleManager {
     return "telegram"; // default fallback
   }
 
-  getStyleSettings(
+  async getStyleSettings(
     responseStyles: ResponseStyles,
     platform: Platform,
     responseType: ResponseType
-  ): StyleSettings {
+  ): Promise<StyleSettings> {
     const defaultStyles: StyleSettings = {
       enabled: true,
       tone: responseStyles.default.tone,
       guidelines: responseStyles.default.guidelines,
       formatting: {},
     };
+
+    // Get quantum personality modifiers
+    const personalitySettings =
+      await this.quantumPersonalityMapper?.mapQuantumToPersonality();
+
+    // Merge quantum style modifiers
+    defaultStyles.tone = [
+      ...defaultStyles.tone,
+      ...(personalitySettings?.styleModifiers.tone || []),
+    ];
+    defaultStyles.guidelines = [
+      ...defaultStyles.guidelines,
+      ...(personalitySettings?.styleModifiers.guidelines || []),
+    ];
 
     const platformStyles = responseStyles.platforms[platform];
     if (!platformStyles) return defaultStyles;

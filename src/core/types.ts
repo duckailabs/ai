@@ -30,6 +30,46 @@ export interface ICharacterManager {
   updateCharacter(id: string, update: CharacterUpdate): Promise<Character>;
 }
 
+export type QuantumPersonalityConfig = {
+  temperature: number;
+  personalityTraits: string[];
+  styleModifiers: {
+    tone: string[];
+    guidelines: string[];
+  };
+  creativityLevels: {
+    low: {
+      personalityTraits: string[];
+      styleModifiers: {
+        tone: string[];
+        guidelines: string[];
+      };
+    };
+    medium: {
+      personalityTraits: string[];
+      styleModifiers: {
+        tone: string[];
+        guidelines: string[];
+      };
+    };
+    high: {
+      personalityTraits: string[];
+      styleModifiers: {
+        tone: string[];
+        guidelines: string[];
+      };
+    };
+  };
+  temperatureRange: {
+    min: number;
+    max: number;
+  };
+  creativityThresholds: {
+    low: number;
+    medium: number;
+  };
+};
+
 export interface IMemoryManager {
   addMemory(
     characterId: string,
