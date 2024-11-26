@@ -1,3 +1,4 @@
+import type { QuantumPersonalityConfig } from "@/core/types";
 import type { Preferences, ResponseStyles } from "@/types";
 import { sql } from "drizzle-orm";
 import {
@@ -109,6 +110,46 @@ const DEFAULT_RESPONSE_STYLES: ResponseStyles = {
   platforms: {},
 } as const;
 
+const DEFAULT_QUANTUM_PERSONALITY: QuantumPersonalityConfig = {
+  temperature: 0.7,
+  personalityTraits: [],
+  styleModifiers: {
+    tone: [],
+    guidelines: [],
+  },
+  creativityLevels: {
+    low: {
+      personalityTraits: [],
+      styleModifiers: {
+        tone: [],
+        guidelines: [],
+      },
+    },
+    medium: {
+      personalityTraits: [],
+      styleModifiers: {
+        tone: [],
+        guidelines: [],
+      },
+    },
+    high: {
+      personalityTraits: [],
+      styleModifiers: {
+        tone: [],
+        guidelines: [],
+      },
+    },
+  },
+  temperatureRange: {
+    min: 0.6,
+    max: 0.8,
+  },
+  creativityThresholds: {
+    low: 100,
+    medium: 180,
+  },
+};
+
 // Update the characters table
 export const characters = pgTable("characters", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -119,6 +160,10 @@ export const characters = pgTable("characters", {
     [key: string]: string;
   }>(),
   generalGuidelines: jsonb("general_guidelines").$type<string[]>().default([]),
+  quantumPersonality: jsonb("quantum_personality")
+    .$type<QuantumPersonalityConfig>()
+    .notNull()
+    .default(DEFAULT_QUANTUM_PERSONALITY),
   identity: jsonb("identity").$type<{
     [key: string]: string | string[];
   }>(),
@@ -314,6 +359,19 @@ export const telegramGroups = pgTable("telegram_groups", {
     .default(sql`now()`),
 });
 
+export const quantumStates = pgTable("quantum_states", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+  randomValue: integer("random_value").notNull(),
+  moodValue: integer("mood_value").notNull(),
+  creativityValue: integer("creativity_value").notNull(),
+  entropyHash: text("entropy_hash").notNull(),
+  isFallback: boolean("is_fallback").notNull().default(false),
+  createdAt: timestamp("created_at")
+    .notNull()
+    .default(sql`now()`),
+});
+
 // Export types
 export type Character = typeof characters.$inferSelect;
 export type NewCharacter = typeof characters.$inferInsert;
@@ -321,3 +379,5 @@ export type SocialRelation = typeof socialRelations.$inferSelect;
 export type Memory = typeof memories.$inferSelect;
 export type Event = typeof events.$inferSelect;
 export type Goal = typeof goals.$inferSelect;
+export type QuantumState = typeof quantumStates.$inferSelect;
+export type NewQuantumState = typeof quantumStates.$inferInsert;

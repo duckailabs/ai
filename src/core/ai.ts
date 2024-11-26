@@ -18,13 +18,21 @@ import { eq } from "drizzle-orm";
 import { drizzle, PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { ConversationManager } from "./managers/conversation";
-import { log, P2PNetwork } from "./managers/libp2p";
+import { P2PNetwork } from "./managers/libp2p";
+import { QuantumStateManager } from "./managers/quantum";
+import { QuantumPersonalityMapper } from "./managers/quantum-personality";
 import { ToolManager } from "./managers/tools";
 import { APIServer, type ServerConfig } from "./platform/api/server";
 import { TelegramClient } from "./platform/telegram/telegram";
 import { EventService } from "./services/Event";
 import { InteractionService } from "./services/Interaction";
+import {
+  StateUpdateService,
+  type StateUpdateConfig,
+} from "./services/quantum-state";
 import type { InteractionOptions } from "./types";
+import type { IBMConfig } from "./utils/IBMRest";
+import { log } from "./utils/logger";
 
 export interface AIOptions {
   databaseUrl: string;
@@ -35,6 +43,12 @@ export interface AIOptions {
   platformDefaults?: {
     telegram?: InteractionDefaults;
     twitter?: InteractionDefaults;
+  };
+  quantum?: {
+    enabled: boolean;
+    cronSchedule?: string;
+    checkInitialState?: boolean;
+    ibmConfig?: IBMConfig;
   };
   platforms?: {
     telegram?: {
@@ -79,6 +93,8 @@ export class ai {
     telegram?: InteractionDefaults;
     twitter?: InteractionDefaults;
   };
+  private quantumStateManager?: QuantumStateManager;
+  private stateUpdateService?: StateUpdateService;
   private isShuttingDown: boolean = false;
   constructor(options: AIOptions) {
     this.queryClient = postgres(options.databaseUrl, {
@@ -87,12 +103,13 @@ export class ai {
       connect_timeout: 10,
     });
     this.db = drizzle(this.queryClient, { schema: dbSchemas });
-
     this.characterManager = new CharacterManager(this.db);
+
+    // Initialize basic managers without quantum features
     this.llmManager = new LLMManager(options.llmConfig, this.characterManager);
+    this.styleManager = new StyleManager(this.characterManager);
     this.characterBuilder = new CharacterBuilder(this.llmManager);
     this.memoryManager = new MemoryManager(this.db, this.llmManager);
-    this.styleManager = new StyleManager(this.characterManager);
     this.eventService = new EventService(this.db, this.characterManager);
     this.toolManager = new ToolManager({ toolsDir: options.toolsDir });
     this.interactionService = new InteractionService(
@@ -113,9 +130,70 @@ export class ai {
     this.platformDefaults = options.platformDefaults;
   }
 
+  // Move character initialization to a separate async method
+  private async initializeQuantumFeatures(options: AIOptions) {
+    if (!options.quantum?.enabled) return;
+    log.warn("initializing quantum features");
+
+    // Initialize quantum components
+    this.quantumStateManager = new QuantumStateManager(
+      this.db,
+      options.quantum.ibmConfig
+    );
+
+    // Verify quantum state exists
+    const currentState = await this.quantumStateManager.getLatestState();
+    log.warn("Current quantum state:", currentState);
+
+    // Create quantum personality mapper
+    const quantumPersonalityMapper = new QuantumPersonalityMapper(
+      this.quantumStateManager,
+      this.character
+    );
+
+    // Test the mapping
+    const initialPersonality =
+      await quantumPersonalityMapper.mapQuantumToPersonality();
+    log.warn("Initial quantum personality mapping:", initialPersonality);
+
+    // Reinitialize LLM manager with quantum features
+    this.llmManager = new LLMManager(
+      {
+        ...options.llmConfig,
+        quantumPersonalityMapper, // Pass the mapper directly
+      },
+      this.characterManager,
+      this.quantumStateManager,
+      this.character
+    );
+
+    // Update the interactionService with the new LLM manager
+    this.interactionService = new InteractionService(
+      this.db,
+      this.characterManager,
+      this.styleManager,
+      this.llmManager, // Pass the updated LLM manager
+      this.memoryManager,
+      this.eventService,
+      this.toolManager
+    );
+
+    // Update the conversation manager with the new interaction service
+    this.conversationManager = new ConversationManager(
+      this.db,
+      this.interactionService,
+      this.eventService,
+      this.llmManager
+    );
+
+    log.warn("Services reinitialized with quantum features");
+  }
+
   // Static factory method for creating a properly initialized instance
   public static async initialize(options: AIOptions): Promise<ai> {
     const instance = new ai(options);
+
+    // Initialize character first
     await instance.initializeCharacter(
       options.character,
       options.refreshCharacterOnRestart
@@ -126,6 +204,9 @@ export class ai {
         "Character initialization failed - character ID is missing"
       );
     }
+
+    // Now initialize quantum features after character is set
+    await instance.initializeQuantumFeatures(options);
 
     // Initialize platforms if configured
     if (options.platforms?.telegram?.enabled) {
@@ -192,6 +273,34 @@ export class ai {
       }
     } else {
       log.info("P2P network not enabled");
+    }
+
+    if (options.quantum?.enabled && instance.quantumStateManager) {
+      log.info("Initializing quantum state service...");
+      const updateConfig: StateUpdateConfig = {
+        enabled: true,
+        cronSchedule: options.quantum.cronSchedule || "0 * * * *", // Default to hourly
+        maxRetries: 3,
+        initialDelayMs: 1000,
+      };
+
+      instance.stateUpdateService = new StateUpdateService(
+        instance.quantumStateManager,
+        instance.eventService, // Pass the event service
+        updateConfig
+      );
+
+      // Set up event listeners
+      instance.stateUpdateService.on("stateUpdated", (state) => {
+        log.info("Quantum state updated:", state.entropyHash);
+      });
+
+      instance.stateUpdateService.on("updateError", (error) => {
+        log.error("Quantum state update failed:", error);
+      });
+
+      await instance.stateUpdateService.start();
+      log.info("Quantum state service initialized successfully!");
     }
 
     instance.setupSignalHandlers();
@@ -270,12 +379,25 @@ export class ai {
       shutdownTasks.push(this.p2pNetwork.stop());
     }
 
+    // Stop quantum state service if it exists
+    if (this.stateUpdateService) {
+      log.info("Stopping quantum state service...");
+      shutdownTasks.push(this.stateUpdateService.stop());
+    }
+
     try {
       await Promise.allSettled(shutdownTasks);
     } catch (error) {
       console.error("Error during service shutdown:", error);
       throw error;
     }
+  }
+
+  public async triggerQuantumUpdate(): Promise<void> {
+    if (!this.stateUpdateService) {
+      throw new Error("Quantum state service not initialized");
+    }
+    await this.stateUpdateService.triggerUpdate();
   }
 
   async getCharacter(id: string) {
@@ -345,6 +467,7 @@ export class ai {
               personalityTraits: characterConfig.personalityTraits,
               beliefSystem: characterConfig.beliefSystem,
               responseStyles: characterConfig.responseStyles,
+              quantumPersonality: characterConfig.quantumPersonality,
               updatedAt: new Date(),
               identity: characterConfig.identity,
             }

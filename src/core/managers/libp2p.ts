@@ -1,3 +1,4 @@
+import { log } from "@/core/utils/logger";
 import type { InteractionDefaults } from "@/types";
 import { gossipsub } from "@chainsafe/libp2p-gossipsub";
 import { noise } from "@chainsafe/libp2p-noise";
@@ -5,58 +6,12 @@ import { yamux } from "@chainsafe/libp2p-yamux";
 import { identify, identifyPush } from "@libp2p/identify";
 import { tcp } from "@libp2p/tcp";
 import { multiaddr } from "@multiformats/multiaddr";
-import chalk from "chalk";
 import crypto from "crypto";
 import { createLibp2p } from "libp2p";
 import { createWalletClient, custom, type WalletClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import type { InteractionOptions } from "../types";
 import type { CharacterManager } from "./character";
-// Console logging utility
-export const log = {
-  info: (message: string, data?: any) => {
-    console.log(
-      chalk.blue("ℹ"),
-      chalk.blue(message),
-      data ? chalk.gray(JSON.stringify(data)) : ""
-    );
-  },
-  sent: (message: string, data?: any) => {
-    console.log(
-      chalk.green("⚡"),
-      chalk.green(message),
-      data ? chalk.gray(JSON.stringify(data)) : ""
-    );
-  },
-  receiving: (message: string, data?: any) => {
-    console.log(
-      chalk.yellow("✉️"),
-      chalk.yellow(message),
-      data ? chalk.gray(JSON.stringify(data)) : ""
-    );
-  },
-  error: (message: string, error?: any) => {
-    console.error(
-      chalk.red("✖"),
-      chalk.red(message),
-      error ? chalk.gray(error.message || JSON.stringify(error)) : ""
-    );
-  },
-  network: (message: string, data?: any) => {
-    console.log(
-      chalk.magenta("⚡"),
-      chalk.magenta(message),
-      data ? chalk.gray(JSON.stringify(data)) : ""
-    );
-  },
-  message: (message: string, data?: any) => {
-    console.log(
-      chalk.cyan("💬"),
-      chalk.cyan(message),
-      data ? chalk.gray(JSON.stringify(data)) : ""
-    );
-  },
-};
 
 interface AgentMetadata {
   creators?: string;

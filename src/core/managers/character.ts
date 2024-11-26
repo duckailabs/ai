@@ -34,43 +34,9 @@ export class CharacterManager {
   async createCharacter(input: CreateCharacterInput) {
     try {
       return await this.db.transaction(async (tx) => {
-        const defaultValues = {
-          responseStyles: {
-            default: {
-              tone: [],
-              personality: [],
-              guidelines: [],
-            },
-            platforms: {},
-          },
-          styles: {},
-          shouldRespond: { rules: [], examples: [] },
-          hobbies: [],
-          beliefSystem: [],
-          preferences: {
-            preferredTopics: [],
-            dislikedTopics: [],
-            preferredTimes: [],
-            dislikedTimes: [],
-            preferredDays: [],
-            dislikedDays: [],
-            preferredHours: [],
-            dislikedHours: [],
-            generalLikes: [],
-            generalDislikes: [],
-          },
-          personalityTraits: [],
-          onchain: null,
-          generalGuidelines: null,
-          updatedAt: new Date(),
-        };
-
         const [character] = await tx
           .insert(dbSchemas.characters)
-          .values({
-            ...defaultValues,
-            ...input,
-          })
+          .values(input)
           .returning();
 
         await this.initializeCharacter(tx, character.id);
