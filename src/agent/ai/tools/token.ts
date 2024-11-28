@@ -85,7 +85,9 @@ interface CryptoMetrics {
   marketCap: number;
 }
 
-export async function getTokenMetrics(coinId: string): Promise<CryptoMetrics> {
+export async function getTokenMetrics(
+  coinId: string
+): Promise<CryptoMetrics | null> {
   try {
     // Get current price, market cap, and 24h data
     const currentResponse = await fetch(
@@ -98,7 +100,7 @@ export async function getTokenMetrics(coinId: string): Promise<CryptoMetrics> {
     );
 
     if (!currentResponse.ok || !historicalResponse.ok) {
-      throw new Error("Failed to fetch data from CoinGecko API");
+      return null;
     }
 
     const currentData = await currentResponse.json();
