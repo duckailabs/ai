@@ -417,6 +417,7 @@ export const coins = pgTable("coins", {
   coingeckoId: varchar("coingecko_id", { length: 255 }).notNull().unique(),
   symbol: varchar("symbol", { length: 50 }).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
+  rank: integer("rank").notNull().default(0),
   currentPrice: numeric("current_price").notNull().default("0"),
   priceChange24h: numeric("price_change_24h").notNull().default("0"),
   priceChange7d: numeric("price_change_7d").notNull().default("0"),
