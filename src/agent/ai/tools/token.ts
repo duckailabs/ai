@@ -2,21 +2,6 @@ import { log } from "@/core/utils/logger";
 import { db, dbSchemas } from "@/db";
 import { and, eq, ilike, or } from "drizzle-orm";
 
-interface CryptoMetrics {
-  currentPrice: number;
-  priceChanges: {
-    day: number;
-    threeDays: number;
-    sevenDays: number;
-  };
-  volumeChanges: {
-    day: number;
-    threeDays: number;
-    sevenDays: number;
-  };
-  marketCap: number;
-}
-
 const priorityChains = [
   "ethereum",
   "arbitrum-one",
@@ -85,6 +70,21 @@ export async function getToken(twitterHandle: string) {
   return partialMatches;
 }
 
+interface CryptoMetrics {
+  currentPrice: number;
+  priceChanges: {
+    day: number;
+    threeDays: number;
+    sevenDays: number;
+  };
+  volumeChanges: {
+    day: number;
+    threeDays: number;
+    sevenDays: number;
+  };
+  marketCap: number;
+}
+
 export async function getTokenMetrics(coinId: string): Promise<CryptoMetrics> {
   try {
     // Get current price, market cap, and 24h data
@@ -114,8 +114,9 @@ export async function getTokenMetrics(coinId: string): Promise<CryptoMetrics> {
     const threeDayPrice = prices[prices.length - 4][1];
     const sevenDayPrice = prices[0][1];
 
-    // Calculate volume changes
-    const currentVolume = current.usd_24h_vol;
+    // Get latest daily volume from historical data instead of 24h volume
+    const currentVolume = volumes[volumes.length - 1][1];
+    const previousDayVolume = volumes[volumes.length - 2][1];
     const threeDayVolume = volumes[volumes.length - 4][1];
     const sevenDayVolume = volumes[0][1];
 
@@ -127,10 +128,7 @@ export async function getTokenMetrics(coinId: string): Promise<CryptoMetrics> {
         sevenDays: ((currentPrice - sevenDayPrice) / sevenDayPrice) * 100,
       },
       volumeChanges: {
-        day:
-          ((currentVolume - volumes[volumes.length - 2][1]) /
-            volumes[volumes.length - 2][1]) *
-          100,
+        day: ((currentVolume - previousDayVolume) / previousDayVolume) * 100,
         threeDays: ((currentVolume - threeDayVolume) / threeDayVolume) * 100,
         sevenDays: ((currentVolume - sevenDayVolume) / sevenDayVolume) * 100,
       },
@@ -141,18 +139,3 @@ export async function getTokenMetrics(coinId: string): Promise<CryptoMetrics> {
     throw error;
   }
 }
-
-async function main() {
-  let result1 = await getToken("Uniswap");
-  if (result1 && result1.length > 0) {
-    let metrics = await getTokenMetrics(result1[0].coingeckoId);
-    console.log(metrics);
-  }
-  let result2 = await getToken("duckunfiltered");
-  if (result2 && result2.length > 0) {
-    let metrics = await getTokenMetrics(result2[0].coingeckoId);
-    console.log(metrics);
-  }
-}
-
-//main();
