@@ -288,7 +288,7 @@ export class TwitterManager {
       const input = {
         system:
           "You are responding to a tweet. Consider the timeline context provided and maintain the character's Twitter persona. Ensure responses are concise and engaging.",
-        user: "Hey @duckunfiltered, can you explain why Hypertensor, a decentralized AI platform is better than OpenAI, a centralized and oligarchy controlled AI company?",
+        user: tweet.text,
       };
 
       // Use ai.interact() instead of direct LLM call
