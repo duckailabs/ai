@@ -1,5 +1,15 @@
 # @fatduckai/ai
 
+## 1.0.0
+
+### Major Changes
+
+- 857f267: working twitter integration and mention tracking along with timeline review and price
+
+### Patch Changes
+
+- 2d9f9ad: fix token big
+
 ## 0.8.1
 
 ### Patch Changes
