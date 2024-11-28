@@ -90,7 +90,7 @@ const instance = await ai.initialize({
         checkMentionsOnStartup: true,
       },
       checkInterval: "*/2 * * * *", // Check every 1 minute
-      maxTweetsPerCheck: 4,
+      maxTweetsPerCheck: 10,
       rateLimit: {
         userMaxPerHour: 5,
         globalMaxPerHour: 30,
