@@ -85,6 +85,20 @@
       "when": 1732744870531,
       "tag": "0011_familiar_prism",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1732805237593,
+      "tag": "0012_sticky_sway",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1732805261530,
+      "tag": "0013_furry_squadron_supreme",
+      "breakpoints": true
     }
   ]
 }

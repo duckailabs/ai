@@ -514,4 +514,60 @@ export class CoinGeckoManager {
       });
     }
   }
+
+  async updateAllRanks() {
+    try {
+      // Get all coins from the database
+      const coins = await this.db
+        .select()
+        .from(dbSchemas.coins)
+        .orderBy(dbSchemas.coins.lastChecked);
+
+      log.info(`Starting rank update for ${coins.length} coins...`);
+
+      // Process in batches to respect rate limits
+      const BATCH_SIZE = this.config.initialScan?.batchSize || 10;
+      for (let i = 0; i < coins.length; i += BATCH_SIZE) {
+        const batch = coins.slice(i, i + BATCH_SIZE);
+
+        await Promise.all(
+          batch.map(async (coin) => {
+            try {
+              const details = await this.fetchCoinDetails(coin.coingeckoId);
+
+              if (details?.market_cap_rank !== undefined) {
+                await this.db
+                  .update(dbSchemas.coins)
+                  .set({
+                    rank: details.market_cap_rank || 0,
+                    lastChecked: new Date(),
+                  })
+                  .where(eq(dbSchemas.coins.coingeckoId, coin.coingeckoId));
+              }
+            } catch (error) {
+              log.error(
+                `Failed to update rank for ${coin.coingeckoId}:`,
+                error
+              );
+            }
+          })
+        );
+
+        // Log progress every 100 coins
+        if ((i + BATCH_SIZE) % 100 === 0) {
+          log.info(`Processed ${i + BATCH_SIZE}/${coins.length} coins...`);
+        }
+
+        // Respect rate limit
+        await new Promise((resolve) =>
+          setTimeout(resolve, this.RATE_LIMIT_DELAY)
+        );
+      }
+
+      log.info("Finished updating all coin ranks");
+    } catch (error) {
+      log.error("Failed to update coin ranks:", error);
+      throw error;
+    }
+  }
 }

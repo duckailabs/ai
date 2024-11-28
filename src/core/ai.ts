@@ -22,6 +22,10 @@ import { ConversationManager } from "./managers/conversation";
 import { P2PNetwork } from "./managers/libp2p";
 import { QuantumStateManager } from "./managers/quantum";
 import { QuantumPersonalityMapper } from "./managers/quantum-personality";
+import {
+  ScheduledPostManager,
+  type ScheduledPostConfig,
+} from "./managers/scheduler";
 import { ToolManager } from "./managers/tools";
 import { APIServer, type ServerConfig } from "./platform/api/server";
 import { TelegramClient } from "./platform/telegram/telegram";
@@ -43,6 +47,12 @@ export interface AIOptions {
   toolsDir?: string | "./ai/tools/";
   character: CreateCharacterInput;
   refreshCharacterOnRestart?: boolean;
+  scheduledPosts?: {
+    enabled: boolean;
+    posts: ScheduledPostConfig[];
+    debug?: boolean;
+    runOnStartup?: boolean;
+  };
   platformDefaults?: {
     telegram?: InteractionDefaults;
     twitter?: InteractionDefaults;
@@ -115,6 +125,7 @@ export class ai {
   private stateUpdateService?: StateUpdateService;
   private twitterManager?: TwitterManager;
   private coinGeckoManager?: CoinGeckoManager;
+  private scheduledPostManager?: ScheduledPostManager;
   private isShuttingDown: boolean = false;
   constructor(options: AIOptions) {
     this.queryClient = postgres(options.databaseUrl, {
@@ -197,7 +208,7 @@ export class ai {
       log.info("Starting CoinGecko manager...");
       await instance.coinGeckoManager.start();
       log.info("CoinGecko manager initialized successfully!");
-      //await instance.coinGeckoManager.updateAllCoinDetails();
+      //await instance.coinGeckoManager.updateAllRanks();
     }
 
     // Now initialize quantum features after character is set
@@ -213,8 +224,22 @@ export class ai {
       );
       const twitterClient = instance.twitterManager.getClient();
       log.info("Got Twitter client from manager:", !!twitterClient);
+
+      if (options.scheduledPosts?.enabled) {
+        log.info("Initializing scheduled post manager...");
+        instance.scheduledPostManager = new ScheduledPostManager(
+          instance,
+          options.scheduledPosts.posts,
+          twitterClient,
+          options.scheduledPosts.debug,
+          options.scheduledPosts.runOnStartup
+        );
+        await instance.scheduledPostManager.start();
+        log.info("Scheduled post manager initialized successfully!");
+      }
       // Create preprocessing manager with the initialized client
       // Create InteractionService once with whatever client we have (or undefined)
+
       instance.interactionService = new InteractionService(
         instance.db,
         instance.characterManager,

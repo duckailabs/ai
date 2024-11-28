@@ -1,0 +1,1 @@
+ALTER TABLE "coin_price_history" ADD COLUMN "rank" integer DEFAULT 0 NOT NULL;
