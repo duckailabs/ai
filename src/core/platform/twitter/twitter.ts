@@ -294,7 +294,7 @@ export class TwitterManager {
       // Structure input with system and user messages
       const input = {
         system:
-          "You are responding to a tweet. Consider the timeline context provided and maintain the character's Twitter persona. Ensure responses are concise and engaging.",
+          "You are responding to a tweet. Consider the timeline context provided and maintain the character's Twitter persona. Ensure responses are concise and engaging. Do not include quotes around your response, just respond directly.",
         user: `Reply to the tweet: ${tweet.text}\n\nReferenced tweet (if any): ${referencedTweet?.text}`,
       };
       log.info(`Input:`, input);
