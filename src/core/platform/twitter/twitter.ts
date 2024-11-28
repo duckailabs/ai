@@ -237,6 +237,13 @@ export class TwitterManager {
       log.info(`Handling mention for tweet ${tweet.id}`, {
         ...tweet,
       });
+      let referencedTweet: Tweet | null = null;
+      if (tweet.referencedTweets) {
+        referencedTweet = await this.client.getTweet(
+          tweet.referencedTweets.replied
+        );
+        log.info(`Referenced tweet:`, referencedTweet);
+      }
       // Check if we should respond
       const { shouldRespond, reason } = await this.shouldRespond(tweet);
       log.info(`Should respond: ${shouldRespond}, reason: ${reason}`);
@@ -288,9 +295,9 @@ export class TwitterManager {
       const input = {
         system:
           "You are responding to a tweet. Consider the timeline context provided and maintain the character's Twitter persona. Ensure responses are concise and engaging.",
-        user: tweet.text,
+        user: `Reply to the tweet: ${tweet.text}\n\nReferenced tweet (if any): ${referencedTweet?.text}`,
       };
-
+      log.info(`Input:`, input);
       // Use ai.interact() instead of direct LLM call
       const response = await this.ai.interact(input, options);
       await this.ai.eventService.createInteractionEvent(
@@ -307,11 +314,13 @@ export class TwitterManager {
       );
 
       if (response) {
+        //log.info(`Response:`, response);
         const responseTweet = await this.client.sendTweet(response.content, {
           replyToTweet: tweet.id,
         });
+        //const responseTweet = { content: "test", id: "123" };
         log.message(`Replying to tweet ${tweet.id} with response:`, {
-          response: response.content,
+          response: responseTweet.text,
         });
 
         // Update mention record
@@ -361,6 +370,10 @@ export class TwitterManager {
         searchMode: "Latest",
       });
       log.info(`Found ${tweets.length} tweets`);
+      log.info(
+        `Tweets:`,
+        tweets.map((t) => t.text)
+      );
       if (tweets.length === 0) return;
 
       // Process tweets in chronological order (oldest first)
