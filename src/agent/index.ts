@@ -70,6 +70,19 @@ const instance = await ai.initialize({
       delay: 6000,
     },
   },
+  scheduledPosts: {
+    enabled: true,
+    posts: [
+      {
+        type: "image",
+        schedule: "0 */4 * * *", // Every 4 hour
+        enabled: true,
+        maxPerDay: 2,
+      },
+    ],
+    debug: false,
+    runOnStartup: false,
+  },
   platforms: {
     telegram: {
       enabled: true,
