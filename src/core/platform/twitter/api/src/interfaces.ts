@@ -18,6 +18,13 @@ export interface Profile {
   joined?: Date;
 }
 
+export interface UserTimelineOptions {
+  limit?: number;
+  cursor?: string;
+  excludeReplies?: boolean;
+  excludeRetweets?: boolean;
+}
+
 export interface Tweet {
   id: string;
   text: string;
@@ -49,6 +56,14 @@ export interface Tweet {
   poll?: Poll | null;
   isLongform?: boolean;
   noteText?: string;
+  referencedTweets?: {
+    quoted: string;
+    replied: string;
+    retweeted: string;
+  };
+  inReplyToUserId?: string;
+  inReplyToStatusId?: string;
+  selfThreadContinuation?: boolean;
 }
 
 export interface Photo {

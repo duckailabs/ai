@@ -359,6 +359,38 @@ export const telegramGroups = pgTable("telegram_groups", {
     .default(sql`now()`),
 });
 
+export const twitterMentionStatusEnum = pgEnum("twitter_mention_status", [
+  "pending",
+  "processed",
+  "skipped",
+  "failed",
+  "rate_limited",
+]);
+
+export const twitterMentions = pgTable("twitter_mentions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tweetId: varchar("tweet_id", { length: 255 }).notNull().unique(),
+  authorId: varchar("author_id", { length: 255 }).notNull(),
+  authorUsername: varchar("author_username", { length: 255 }).notNull(),
+  characterId: uuid("character_id")
+    .notNull()
+    .references(() => characters.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull(),
+  processedAt: timestamp("processed_at"),
+  status: twitterMentionStatusEnum("status").notNull().default("pending"),
+  skipReason: varchar("skip_reason", { length: 255 }),
+  responseTweetId: varchar("response_tweet_id", { length: 255 }),
+  isReply: boolean("is_reply").notNull().default(false),
+  isRetweet: boolean("is_retweet").notNull().default(false),
+  conversationId: varchar("conversation_id", { length: 255 }),
+  metrics: jsonb("metrics").$type<{
+    likes?: number;
+    retweets?: number;
+    replies?: number;
+    views?: number;
+  }>(),
+});
+
 export const quantumStates = pgTable("quantum_states", {
   id: uuid("id").defaultRandom().primaryKey(),
   timestamp: timestamp("timestamp").notNull().defaultNow(),
@@ -371,6 +403,70 @@ export const quantumStates = pgTable("quantum_states", {
     .notNull()
     .default(sql`now()`),
 });
+
+// Add to your schema file:
+export const coinPriceHistoryEnum = pgEnum("coin_price_source", [
+  "coingecko",
+  "binance",
+  "kraken",
+  "manual",
+]);
+
+export const coins = pgTable("coins", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  coingeckoId: varchar("coingecko_id", { length: 255 }).notNull().unique(),
+  symbol: varchar("symbol", { length: 50 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  currentPrice: numeric("current_price").notNull().default("0"),
+  priceChange24h: numeric("price_change_24h").notNull().default("0"),
+  priceChange7d: numeric("price_change_7d").notNull().default("0"),
+  platforms: jsonb("platforms").$type<Record<string, string>>().default({}),
+  metadata: jsonb("metadata")
+    .$type<{
+      image?: string;
+      marketCap?: number;
+      rank?: number;
+      tags?: string[];
+      isDelisted?: boolean;
+      lastChecked?: string;
+    }>()
+    .default({}),
+  twitterHandle: text(),
+  lastChecked: timestamp("last_checked")
+    .notNull()
+    .default(sql`now()`),
+  lastUpdated: timestamp("last_updated")
+    .notNull()
+    .default(sql`now()`),
+  createdAt: timestamp("created_at")
+    .notNull()
+    .default(sql`now()`),
+});
+
+export const coinPriceHistory = pgTable("coin_price_history", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  coinId: uuid("coin_id")
+    .notNull()
+    .references(() => coins.id, { onDelete: "cascade" }),
+  price: numeric("price").notNull(),
+  timestamp: timestamp("timestamp").notNull(),
+  source: coinPriceHistoryEnum("source").notNull().default("coingecko"),
+  metadata: jsonb("metadata")
+    .$type<{
+      volume?: number;
+      marketCap?: number;
+      additionalData?: Record<string, unknown>;
+    }>()
+    .default({}),
+  createdAt: timestamp("created_at")
+    .notNull()
+    .default(sql`now()`),
+});
+
+export type Coin = typeof coins.$inferSelect;
+export type NewCoin = typeof coins.$inferInsert;
+export type CoinPriceHistory = typeof coinPriceHistory.$inferSelect;
+export type NewCoinPriceHistory = typeof coinPriceHistory.$inferInsert;
 
 // Export types
 export type Character = typeof characters.$inferSelect;

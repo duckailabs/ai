@@ -27,9 +27,9 @@ export class GraphQLRequestStrategy extends BaseRequestStrategy {
     retweet: "ojPdsZsimiJrUGLR1sjUtA",
     searchTweets: "gkjsKepM6gl_HmFWoWKfgg",
     getUser: "G3KGOASz96M-Qu0nwmGXNg",
-    getUserTweets: "E3opETHurmVJflFsUBVuUQ",
     followUser: "UoqsuUVNGg0jyKGggb6eHQ",
     noteTweet: "3Wu3Na3lrBzHKWJylOmaSg",
+    userTweets: "E3opETHurmVJflFsUBVuUQ",
   };
 
   private readonly endpoints = {
@@ -39,10 +39,39 @@ export class GraphQLRequestStrategy extends BaseRequestStrategy {
     retweet: `${this.queryIds.retweet}/CreateRetweet`,
     searchTweets: `${this.queryIds.searchTweets}/SearchTimeline`,
     getUser: `${this.queryIds.getUser}/UserByScreenName`,
-    getUserTweets: `${this.queryIds.getUserTweets}/UserTweets`,
     followUser: `${this.queryIds.followUser}/Follow`,
     createNoteTweet: `${this.queryIds.noteTweet}/CreateNoteTweet`,
+    userTweets: `${this.queryIds.userTweets}/UserTweets`,
   };
+
+  protected getUserTweetsFeatures() {
+    return {
+      rweb_tipjar_consumption_enabled: true,
+      responsive_web_graphql_exclude_directive_enabled: true,
+      verified_phone_label_enabled: false,
+      creator_subscriptions_tweet_preview_api_enabled: true,
+      responsive_web_graphql_timeline_navigation_enabled: true,
+      responsive_web_graphql_skip_user_profile_image_extensions_enabled: false,
+      communities_web_enable_tweet_community_results_fetch: true,
+      c9s_tweet_anatomy_moderator_badge_enabled: true,
+      articles_preview_enabled: true,
+      responsive_web_edit_tweet_api_enabled: true,
+      graphql_is_translatable_rweb_tweet_is_translatable_enabled: true,
+      view_counts_everywhere_api_enabled: true,
+      longform_notetweets_consumption_enabled: true,
+      responsive_web_twitter_article_tweet_consumption_enabled: true,
+      tweet_awards_web_tipping_enabled: false,
+      creator_subscriptions_quote_tweet_preview_enabled: false,
+      freedom_of_speech_not_reach_fetch_enabled: true,
+      standardized_nudges_misinfo: true,
+      tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled:
+        true,
+      rweb_video_timestamps_enabled: true,
+      longform_notetweets_rich_text_read_enabled: true,
+      longform_notetweets_inline_media_enabled: true,
+      responsive_web_enhance_cards_enabled: false,
+    };
+  }
 
   protected getFollowUserFeatures() {
     return {
@@ -441,7 +470,6 @@ export class GraphQLRequestStrategy extends BaseRequestStrategy {
   }
 
   private parseTweetResponse(response: any): RequestResponse<Tweet> {
-    // Find tweet in the new response structure
     const tweetResult =
       response.data?.tweet_result?.result ||
       response.data?.create_tweet?.tweet_results?.result ||
@@ -450,15 +478,13 @@ export class GraphQLRequestStrategy extends BaseRequestStrategy {
         ?.entries?.[0]?.content?.itemContent?.tweet_results?.result;
 
     if (!tweetResult) {
-      console.log("Tweet result not found in response structure");
-      console.log("Response data paths:", Object.keys(response.data || {}));
-      console.log("Full response:", JSON.stringify(response, null, 2));
       throw new TwitterError(404, "Tweet not found");
     }
 
     const legacy = tweetResult.legacy || tweetResult.tweet?.legacy || {};
     const core = tweetResult.core || tweetResult.tweet?.core || {};
     const userLegacy = core?.user_results?.result?.legacy || {};
+    const entities = legacy.entities || {};
 
     const tweet: Tweet = {
       id: tweetResult.rest_id || legacy.id_str,
@@ -471,6 +497,8 @@ export class GraphQLRequestStrategy extends BaseRequestStrategy {
       authorUsername: userLegacy.screen_name,
       createdAt: legacy.created_at ? new Date(legacy.created_at) : undefined,
       conversationId: legacy.conversation_id_str,
+      inReplyToStatusId: legacy.in_reply_to_status_id_str,
+      inReplyToUserId: legacy.in_reply_to_user_id_str,
       metrics: {
         likes: legacy.favorite_count || 0,
         retweets: legacy.retweet_count || 0,
@@ -486,6 +514,15 @@ export class GraphQLRequestStrategy extends BaseRequestStrategy {
       isPin: false,
       isSelfThread: this.checkIsSelfThread(legacy),
       sensitiveContent: this.checkSensitiveContent(legacy),
+      // Add fields for thread detection
+      referencedTweets: {
+        quoted: legacy.quoted_status_id_str,
+        replied: legacy.in_reply_to_status_id_str,
+        retweeted: legacy.retweeted_status_result?.result?.rest_id,
+      },
+      selfThreadContinuation:
+        legacy.in_reply_to_user_id_str === legacy.user_id_str &&
+        legacy.in_reply_to_status_id_str !== undefined,
     };
 
     // Handle media
@@ -722,5 +759,123 @@ export class GraphQLRequestStrategy extends BaseRequestStrategy {
         (error as any).message || "Failed to create poll"
       );
     }
+  }
+
+  async getUserTimeline(
+    username: string,
+    options?: {
+      limit?: number;
+      cursor?: string;
+      excludeReplies?: boolean;
+      excludeRetweets?: boolean;
+    }
+  ): Promise<RequestResponse<Tweet[]>> {
+    // First get user ID
+    const userIdRes = await this.getProfile(username);
+    if (!userIdRes.data) {
+      throw new TwitterError(404, "User not found");
+    }
+
+    const variables = {
+      userId: userIdRes.data.id,
+      count: Math.min(options?.limit || 40, 40),
+      includePromotedContent: true,
+      withQuickPromoteEligibilityTweetFields: true,
+      withVoice: true,
+      withV2Timeline: true,
+      cursor: options?.cursor,
+    };
+
+    const fieldToggles = {
+      withArticlePlainText: false,
+    };
+
+    const params = new URLSearchParams({
+      variables: JSON.stringify(variables),
+      features: JSON.stringify(this.getUserTweetsFeatures()),
+      fieldToggles: JSON.stringify(fieldToggles),
+    });
+
+    const response = await this.makeRequest(
+      `${this.graphqlUrl}/${this.endpoints.userTweets}?${params.toString()}`,
+      "GET"
+    );
+
+    const tweets: Tweet[] = [];
+    let nextCursor: string | undefined;
+
+    // Helper function to process a tweet result
+    const processTweetResult = (tweetResult: any) => {
+      if (!tweetResult) return;
+
+      const tweet = this.parseTweetResponse({
+        data: {
+          tweet_result: {
+            result: tweetResult,
+          },
+        },
+      }).data;
+
+      // Apply filters if specified
+      if (options?.excludeReplies && tweet.isReply) return;
+      if (options?.excludeRetweets && tweet.isRetweet) return;
+
+      tweets.push(tweet);
+    };
+
+    // Process timeline instructions
+    const instructions =
+      (response as any).data?.user?.result?.timeline_v2?.timeline
+        ?.instructions || [];
+
+    for (const instruction of instructions) {
+      if (instruction.type === "TimelineAddEntries") {
+        for (const entry of instruction.entries || []) {
+          // Handle cursor entries
+          if (entry.content?.cursorType === "Bottom") {
+            nextCursor = entry.content.value;
+            continue;
+          }
+
+          // Skip non-tweet entries
+          const entryId = entry.entryId;
+          if (
+            !entryId?.startsWith("tweet-") &&
+            !entryId?.startsWith("profile-conversation")
+          ) {
+            continue;
+          }
+
+          // Handle direct tweet entries
+          if (entry.content?.itemContent?.tweet_results?.result) {
+            processTweetResult(entry.content.itemContent.tweet_results.result);
+          }
+          // Handle conversation/thread entries
+          else if (entry.content?.items) {
+            for (const item of entry.content.items) {
+              // Process main tweet in thread
+              if (item.item?.itemContent?.tweet_results?.result) {
+                processTweetResult(item.item.itemContent.tweet_results.result);
+              }
+              // Process thread replies
+              if (item.item?.items) {
+                for (const subItem of item.item.items) {
+                  if (subItem.item?.itemContent?.tweet_results?.result) {
+                    processTweetResult(
+                      subItem.item.itemContent.tweet_results.result
+                    );
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return {
+      data: tweets,
+      meta: { nextCursor },
+    };
   }
 }

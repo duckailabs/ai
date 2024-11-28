@@ -12,13 +12,16 @@ import { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import type { CharacterManager } from "../managers/character";
 import type { LLMManager } from "../managers/llm";
 import type { MemoryManager } from "../managers/memory";
+import { PreprocessingManager } from "../managers/preprocess";
 import type { StyleManager } from "../managers/style";
 import type { ToolManager } from "../managers/tools";
+import type { TwitterClient } from "../platform/twitter/api/src/client";
 import type {
   InteractionEventType,
   InteractionOptions,
   InteractionResult,
 } from "../types";
+import { log } from "../utils/logger";
 import { EventService } from "./Event";
 
 interface PromptContext {
@@ -36,6 +39,9 @@ interface PromptContext {
 }
 
 export class InteractionService {
+  private preprocessingManager: PreprocessingManager;
+  private twitterClient?: TwitterClient;
+
   constructor(
     private db: PostgresJsDatabase<typeof dbSchemas>,
     private characterManager: CharacterManager,
@@ -43,8 +49,12 @@ export class InteractionService {
     private llmManager: LLMManager,
     private memoryManager: MemoryManager,
     private eventService: EventService,
-    private toolManager: ToolManager
-  ) {}
+    private toolManager: ToolManager,
+    twitterClient?: TwitterClient
+  ) {
+    this.preprocessingManager = new PreprocessingManager(twitterClient);
+    this.twitterClient = twitterClient;
+  }
 
   async handleInteraction(
     input: string | { system: string; user: string },
@@ -52,16 +62,38 @@ export class InteractionService {
   ): Promise<InteractionResult> {
     return this.db.transaction(async (tx) => {
       try {
+        log.info("Handling interaction", this.twitterClient);
         // Initialize context
         const context = await this.initializeContext(input, options);
+
+        const preprocessingResults = await this.preprocessingManager.process({
+          platform: options.platform,
+          text: typeof input === "string" ? input : input.user,
+          userId: options.userId,
+          username: options.username,
+          messageId: options.messageId,
+        });
+        // Add preprocessing results to custom injections
+        if (preprocessingResults.length > 0) {
+          options.injections = options.injections || {};
+          options.injections.customInjections =
+            options.injections.customInjections || [];
+          options.injections.customInjections.push({
+            name: "timeline",
+            content:
+              this.preprocessingManager.formatResults(preprocessingResults),
+            position: "before",
+          });
+        }
+
         // Execute tools first if any are specified
         let toolResults: Record<string, ToolResult> = {};
-        if (options.tools?.length) {
+        /* if (options.tools?.length) {
           toolResults = await this.toolManager.executeTools(
             options.tools,
             options.toolContext
           );
-        }
+        } */
         // Process prompt with injections and tool results
         const finalSystem = await this.buildFinalPrompt(
           context,
@@ -209,12 +241,15 @@ export class InteractionService {
       const messages = await this.llmManager.preparePrompt(system, {
         ...llmContext,
         user: context.user,
+        styleSettings: context.styleContext.styleSettings,
+        responseType: context.styleContext.responseType,
       });
       // Generate the response with the configured settings
-      const response = await this.llmManager.generateResponse(messages, {
+      const response = await this.llmManager.generateResponsev2(messages, {
         temperature: options.temperature ?? 0.7,
         max_tokens: options.maxTokens,
-        // Add any other OpenAI parameters you want to support
+        styleSettings: context.styleContext.styleSettings,
+        responseType: context.styleContext.responseType,
       });
 
       // Enhance the response metadata

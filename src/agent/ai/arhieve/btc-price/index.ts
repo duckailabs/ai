@@ -14,10 +14,10 @@ const btcPriceTool: Tool = {
   async execute(): Promise<ToolResult> {
     try {
       const response = await fetch(
-        "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=7&interval=daily&precision=0",
+        "https://pro-api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=7&interval=daily&precision=0",
         {
           headers: {
-            "x-cg-demo-api-key": process.env.COINGECKO_API_KEY ?? "",
+            "x-cg-pro-api-key": process.env.COINGECKO_API_KEY ?? "",
           },
         }
       );
@@ -53,4 +53,4 @@ const btcPriceTool: Tool = {
   },
 };
 
-export default btcPriceTool;
+/* export default btcPriceTool; */

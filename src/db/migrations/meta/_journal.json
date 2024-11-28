@@ -71,6 +71,20 @@
       "when": 1732638464629,
       "tag": "0009_lowly_the_watchers",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1732711309729,
+      "tag": "0010_fine_boom_boom",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1732744870531,
+      "tag": "0011_familiar_prism",
+      "breakpoints": true
     }
   ]
 }
