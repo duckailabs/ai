@@ -307,15 +307,15 @@ export class TwitterManager {
       );
 
       if (response) {
-        /* const responseTweet = await this.client.sendTweet(response, {
+        const responseTweet = await this.client.sendTweet(response, {
           replyToTweet: tweet.id,
-        }); */
+        });
         log.message(`Replying to tweet ${tweet.id} with response:`, {
           response: response.content,
         });
 
         // Update mention record
-        /* await this.recordMention(
+        await this.recordMention(
           tweet,
           "processed",
           undefined,
@@ -335,7 +335,7 @@ export class TwitterManager {
               correlationId,
             },
           }
-        ); */
+        );
       }
     } catch (error) {
       log.error(`Error handling mention for tweet ${tweet.id}:`, error);
