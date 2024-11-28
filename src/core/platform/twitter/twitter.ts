@@ -238,11 +238,10 @@ export class TwitterManager {
         ...tweet,
       });
       let referencedTweet: Tweet | null = null;
-      if (tweet.referencedTweets) {
+      if (tweet.referencedTweets?.replied) {
         referencedTweet = await this.client.getTweet(
           tweet.referencedTweets.replied
         );
-        log.info(`Referenced tweet:`, referencedTweet);
       }
       // Check if we should respond
       const { shouldRespond, reason } = await this.shouldRespond(tweet);

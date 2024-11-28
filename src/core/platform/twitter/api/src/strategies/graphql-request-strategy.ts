@@ -323,7 +323,7 @@ export class GraphQLRequestStrategy extends BaseRequestStrategy {
   async getTweet(id: string): Promise<RequestResponse<Tweet>> {
     // For GET requests, add params to URL instead of body
     const variables = {
-      focalTweetId: id,
+      focalTweetId: id || 0,
       withHighlightedLabel: true,
       withVoice: true,
       withV2Timeline: true,
