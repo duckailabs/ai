@@ -72,7 +72,7 @@ const instance = await ai.initialize({
   },
   platforms: {
     telegram: {
-      enabled: true,
+      enabled: false,
       token: process.env.TELEGRAM_BOT_TOKEN!,
     },
     api: {
