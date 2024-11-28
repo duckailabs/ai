@@ -89,7 +89,7 @@ const instance = await ai.initialize({
       debug: {
         checkMentionsOnStartup: true,
       },
-      checkInterval: "*/5 * * * *", // Check every 5 minutes
+      checkInterval: "*/2 * * * *", // Check every 1 minute
       maxTweetsPerCheck: 4,
       rateLimit: {
         userMaxPerHour: 5,
