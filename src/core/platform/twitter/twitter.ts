@@ -307,7 +307,7 @@ export class TwitterManager {
       );
 
       if (response) {
-        const responseTweet = await this.client.sendTweet(response, {
+        const responseTweet = await this.client.sendTweet(response.content, {
           replyToTweet: tweet.id,
         });
         log.message(`Replying to tweet ${tweet.id} with response:`, {
