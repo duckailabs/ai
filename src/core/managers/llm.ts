@@ -1,4 +1,4 @@
-import type { Character } from "@/db/schema/schema";
+import type { Character, Coin } from "@/db/schema/schema";
 import { OpenAI } from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import type { ImageGenerationResult } from "../types";
@@ -75,10 +75,12 @@ export class LLMManager {
     });
 
     if (this.quantumPersonalityMapper) {
-      log.warn("LLM Manager initialized with quantum personality mapper");
+      log.info("LLM Manager initialized with quantum personality mapper");
     }
   }
-
+  /**
+   * @deprecated
+   */
   async generateResponse(
     messages: ChatCompletionMessageParam[],
     options?: Record<string, any>
@@ -110,13 +112,13 @@ export class LLMManager {
       const mergedSettings = {
         tone: [
           ...new Set([
-            ...baseSettings.tone,
+            ...(baseSettings.tone ?? []),
             ...(personalitySettings?.styleModifiers.tone ?? []),
           ]),
         ],
         personality: [
           ...new Set([
-            ...baseSettings.personality,
+            ...(baseSettings.personality ?? []),
             ...(personalitySettings?.personalityTraits ?? []),
           ]),
         ],
@@ -187,6 +189,88 @@ Base instruction: ${systemMessage.content}
           personalitySettings: mergedSettings,
         },
       };
+    } catch (error) {
+      console.error("Error generating response:", error);
+      throw error;
+    }
+  }
+
+  async generateResponsev2(
+    messages: ChatCompletionMessageParam[],
+    options?: Record<string, any>
+  ) {
+    try {
+      // Get quantum personality settings if available
+      let personalitySettings: QuantumPersonalitySettings | undefined;
+      if (this.quantumPersonalityMapper) {
+        personalitySettings =
+          await this.quantumPersonalityMapper.mapQuantumToPersonality();
+
+        // Use quantum temperature
+        const temperature = personalitySettings.temperature;
+
+        // Let's log what we're getting from InteractionService and what we're adding
+
+        // Create response with quantum settings but keep InteractionService guidelines
+        const response = await this.openai.chat.completions.create({
+          model: this.config.llm.model,
+          messages,
+          temperature,
+          ...options,
+        });
+
+        return {
+          content: response.choices[0].message.content ?? "",
+          metadata: {
+            model: response.model,
+            usage: response.usage,
+            finishReason: response.choices[0].finish_reason,
+            temperature,
+            personalitySettings: {
+              // Use quantum settings for these
+              tone: personalitySettings.styleModifiers.tone,
+              personality: personalitySettings.personalityTraits,
+              // Keep the guidelines from InteractionService
+              guidelines: options?.styleSettings?.guidelines || [],
+              temperature,
+            },
+            context: {
+              responseType: options?.responseType,
+              characterId: options?.characterId,
+            },
+          },
+        };
+      } else {
+        // No quantum, use default settings from InteractionService
+        const response = await this.openai.chat.completions.create({
+          model: this.config.llm.model,
+          messages,
+          temperature: this.config.llm.temperature,
+          ...options,
+        });
+
+        log.warn("Final prompt construction:", {
+          systemPrompt: messages,
+          temperature: this.config.llm.temperature,
+          mergedSettings: options?.styleSettings || {},
+        });
+
+        return {
+          content: response.choices[0].message.content ?? "",
+          metadata: {
+            model: response.model,
+            usage: response.usage,
+            finishReason: response.choices[0].finish_reason,
+            temperature: this.config.llm.temperature,
+            // Use all settings from InteractionService
+            personalitySettings: options?.styleSettings || {},
+            context: {
+              responseType: options?.responseType,
+              characterId: options?.characterId,
+            },
+          },
+        };
+      }
     } catch (error) {
       console.error("Error generating response:", error);
       throw error;
@@ -372,6 +456,26 @@ Return only a number between 0 and 1.`;
         }`
       );
     }
+  }
+
+  async findToken(tag: string, recentCoins: Coin[]): Promise<string | null> {
+    const prompt = `Given the Twitter cashtag or mention "${tag}", find the best matching cryptocurrency from the following list. Only return the exact ID if confident, otherwise return "none":
+
+    ${recentCoins
+      .map((c) => `${c.coingeckoId} (${c.symbol}: ${c.name})`)
+      .join("\n")}
+    
+    [Additional context: Consider common nicknames, abbreviations, and variations]
+    
+    Return just the coin ID or "none".`;
+
+    const completion = await this.openai.chat.completions.create({
+      model: this.config.analyzer.model,
+      temperature: this.config.analyzer.temperature,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    return completion.choices[0].message.content;
   }
 
   private interpolateTemplate(

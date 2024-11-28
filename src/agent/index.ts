@@ -1,11 +1,11 @@
 import { ai } from "@/core/ai";
 import { log } from "@/core/utils/logger";
 import dotenv from "dotenv";
+import fs from "fs/promises";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
 import { duckyCharacter } from "./ai/character/ducky";
 import { config } from "./ai/config";
-
 // Get equivalent of __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -13,6 +13,30 @@ dotenv.config();
 
 const args = process.argv.slice(2);
 const port = args[0] ? parseInt(args[0]) : 8001;
+
+async function loadTwitterCookies() {
+  try {
+    if (process.env.TWITTER_COOKIES) {
+      try {
+        return JSON.parse(process.env.TWITTER_COOKIES);
+      } catch (error) {
+        log.error(
+          "Failed to parse TWITTER_COOKIES environment variable:",
+          error
+        );
+        throw new Error(
+          "TWITTER_COOKIES environment variable contains invalid JSON"
+        );
+      }
+    }
+    const cookiesPath = path.join(__dirname, "ai", "config", "cookies.json");
+    const cookiesData = await fs.readFile(cookiesPath, "utf-8");
+    return JSON.parse(cookiesData);
+  } catch (error) {
+    log.error("Failed to load Twitter cookies:", error);
+    throw new Error("Twitter cookies file is required but couldn't be loaded");
+  }
+}
 
 log.info(`Initializing Agent Ducky 00${port === 8001 ? 7 : 8}...`);
 const instance = await ai.initialize({
@@ -36,6 +60,16 @@ const instance = await ai.initialize({
   character: duckyCharacter,
   refreshCharacterOnRestart: true,
   toolsDir: path.join(__dirname, "./ai/tools"),
+  coingecko: {
+    enabled: true,
+    apiKey: process.env.COINGECKO_API_KEY!,
+    updateInterval: "0 0 * * *",
+    initialScan: {
+      enabled: true,
+      batchSize: 50, // Process 5 coins in parallel
+      delay: 6000,
+    },
+  },
   platforms: {
     telegram: {
       enabled: true,
@@ -46,6 +80,20 @@ const instance = await ai.initialize({
       port: 3000,
       cors: {
         allowedOrigins: ["http://localhost"],
+      },
+    },
+    twitter: {
+      enabled: true,
+      cookies: await loadTwitterCookies(),
+      username: "duckunfiltered",
+      debug: {
+        checkMentionsOnStartup: true,
+      },
+      checkInterval: "*/5 * * * *", // Check every 5 minutes
+      maxTweetsPerCheck: 4,
+      rateLimit: {
+        userMaxPerHour: 5,
+        globalMaxPerHour: 30,
       },
     },
     p2p: {
@@ -65,7 +113,7 @@ const instance = await ai.initialize({
   quantum: {
     enabled: true,
     checkInitialState: false,
-    cronSchedule: "0 */4 * * *", // 2 hours
+    cronSchedule: "0 */4 * * *", // 4 hours
     ibmConfig: {
       apiToken: process.env.IBM_QUANTUM_API_TOKEN!,
       backend: "ibm_brisbane",

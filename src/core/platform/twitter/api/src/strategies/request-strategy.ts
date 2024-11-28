@@ -3,6 +3,7 @@ import {
   type SearchOptions,
   type Tweet,
   type TweetOptions,
+  type UserTimelineOptions,
 } from "../interfaces";
 
 export interface RequestResponse<T> {
@@ -30,6 +31,10 @@ export interface IRequestStrategy {
     query: string,
     options?: SearchOptions
   ): Promise<RequestResponse<Tweet[]>>;
+  getUserTimeline(
+    username: string,
+    options?: UserTimelineOptions
+  ): Promise<RequestResponse<Tweet[]>>;
 }
 
 export abstract class BaseRequestStrategy implements IRequestStrategy {
@@ -54,7 +59,10 @@ export abstract class BaseRequestStrategy implements IRequestStrategy {
     query: string,
     options?: SearchOptions
   ): Promise<RequestResponse<Tweet[]>>;
-
+  abstract getUserTimeline(
+    username: string,
+    options?: UserTimelineOptions
+  ): Promise<RequestResponse<Tweet[]>>;
   protected async makeRequest<T>(
     url: string,
     method: "GET" | "POST" = "GET",
