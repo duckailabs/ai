@@ -84,8 +84,10 @@ export class PreprocessingManager {
       const token = await getToken(username);
       if (token && token.length > 0) {
         const metrics = await getTokenMetrics(token[0].coingeckoId);
-        tokenMetrics[username] = metrics;
-        log.info(`Metrics for ${username}:`, metrics);
+        if (metrics) {
+          tokenMetrics[username] = metrics;
+          log.info(`Metrics for ${username}:`, metrics);
+        }
       }
     }
 
