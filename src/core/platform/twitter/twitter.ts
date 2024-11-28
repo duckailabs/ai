@@ -121,7 +121,7 @@ export class TwitterManager {
           .where(and(eq(twitterMentions.conversationId, tweet.conversationId)));
         log.info(`Conversation responses:`, conversationResponses.length);
         // Limit to 1 response per conversation
-        if (conversationResponses.length >= 1) {
+        if (conversationResponses.length >= 4) {
           return { shouldRespond: false, reason: "conversation_limit_reached" };
         }
       }
