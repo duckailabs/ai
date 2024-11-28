@@ -82,8 +82,8 @@ export class StyleManager {
 
     // Merge quantum style modifiers
     defaultStyles.tone = [
-      ...defaultStyles.tone,
-      ...(personalitySettings?.styleModifiers.tone || []),
+      ...(defaultStyles.tone ?? []),
+      ...(personalitySettings?.styleModifiers.tone ?? []),
     ];
     defaultStyles.guidelines = [
       ...defaultStyles.guidelines,
@@ -107,7 +107,10 @@ export class StyleManager {
     // Merge platform defaults
     const withPlatformDefaults: StyleSettings = {
       ...defaultStyles,
-      tone: [...defaultStyles.tone, ...platformStyles.defaultTone],
+      tone: [
+        ...(defaultStyles.tone ?? []),
+        ...(platformStyles.defaultTone ?? []),
+      ],
       guidelines: [
         ...defaultStyles.guidelines,
         ...platformStyles.defaultGuidelines,
@@ -119,7 +122,7 @@ export class StyleManager {
 
     return {
       enabled: typeStyles.enabled ?? true,
-      tone: [...withPlatformDefaults.tone, ...typeStyles.tone],
+      tone: [...(withPlatformDefaults.tone ?? []), ...(typeStyles.tone ?? [])],
       guidelines: [
         ...withPlatformDefaults.guidelines,
         ...typeStyles.guidelines,
@@ -140,7 +143,7 @@ export class StyleManager {
     return {
       name: character.name,
       personality: character.personalityTraits.join("\n"),
-      tone: styleSettings.tone.join("\n"),
+      tone: (styleSettings.tone ?? []).join("\n"),
       guidelines: styleSettings.guidelines.join("\n"),
       formatting: styleSettings.formatting,
       ...userContext,

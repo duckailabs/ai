@@ -441,3 +441,27 @@ export interface ImageGenerationResult {
   error?: string;
   url?: string;
 }
+
+// types.ts
+export interface CoinGeckoConfig {
+  enabled: boolean;
+  apiKey?: string;
+  updateInterval?: string; // cron schedule
+  cache?: {
+    enabled: boolean;
+    ttl: number; // milliseconds
+  };
+}
+
+export interface CoinData {
+  id: string;
+  symbol: string;
+  name: string;
+  platforms?: Record<string, string>;
+}
+
+export interface CoinPrice {
+  currentPrice: number;
+  priceChange: number;
+  lastUpdated: Date;
+}

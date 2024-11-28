@@ -100,6 +100,7 @@ web_modules/
 
 # dotenv environment variable files
 
+src/agent/ai/config/*
 src/core/config/*
 .env
 .env2

@@ -1,23 +1,17 @@
-import { TwitterApi } from "twitter-api-v2";
 import { CookieAuthStrategy } from "./auth/strategies";
 import {
-  type APIv2Credentials,
   type Profile,
   type SearchOptions,
   type Tweet,
   type TweetOptions,
+  type UserTimelineOptions,
 } from "./interfaces";
-import { APIv2RequestStrategy } from "./strategies/apiv2-request-strategy";
 import { GraphQLRequestStrategy } from "./strategies/graphql-request-strategy";
 
 export class TwitterClient {
-  private readonly requestStrategy:
-    | GraphQLRequestStrategy
-    | APIv2RequestStrategy;
+  private readonly requestStrategy: GraphQLRequestStrategy;
 
-  private constructor(
-    requestStrategy: GraphQLRequestStrategy | APIv2RequestStrategy
-  ) {
+  private constructor(requestStrategy: GraphQLRequestStrategy) {
     this.requestStrategy = requestStrategy;
   }
 
@@ -27,16 +21,6 @@ export class TwitterClient {
     return new TwitterClient(
       new GraphQLRequestStrategy(authStrategy.getHeaders.bind(authStrategy))
     );
-  }
-
-  static createWithAPIv2(credentials: APIv2Credentials): TwitterClient {
-    const client = new TwitterApi({
-      appKey: credentials.appKey,
-      appSecret: credentials.appSecret,
-      accessToken: credentials.accessToken,
-      accessSecret: credentials.accessSecret,
-    });
-    return new TwitterClient(new APIv2RequestStrategy(client));
   }
 
   async sendTweet(text: string, options?: TweetOptions): Promise<Tweet> {
@@ -62,14 +46,12 @@ export class TwitterClient {
     return response.data;
   }
 
-  async createQuoteTweet(
-    text: string,
-    quotedTweetId: string,
-    options?: Omit<TweetOptions, "quoteTweet">
-  ): Promise<Tweet> {
-    const response = await this.requestStrategy.createQuoteTweet(
-      text,
-      quotedTweetId,
+  async getUserTimeline(
+    username: string,
+    options?: UserTimelineOptions
+  ): Promise<Tweet[]> {
+    const response = await this.requestStrategy.getUserTimeline(
+      username,
       options
     );
     return response.data;
@@ -104,9 +86,5 @@ export class TwitterClient {
 export class TwitterClientFactory {
   static async createWithCookies(cookies: string[]): Promise<TwitterClient> {
     return TwitterClient.createWithCookies(cookies);
-  }
-
-  static createWithAPIv2(credentials: APIv2Credentials): TwitterClient {
-    return TwitterClient.createWithAPIv2(credentials);
   }
 }

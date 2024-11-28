@@ -1,6 +1,5 @@
 import type { Character } from "@/db/schema/schema";
 import { type QuantumState } from "@/db/schema/schema";
-import { log } from "../utils/logger";
 import type { QuantumStateManager } from "./quantum";
 
 export interface QuantumPersonalitySettings {
@@ -26,10 +25,6 @@ export class QuantumPersonalityMapper {
     if (!quantumState) throw new Error("No quantum state found");
 
     // Add debug logging
-    log.warn("Mapping quantum state to personality:", {
-      moodValue: quantumState.moodValue,
-      creativityValue: quantumState.creativityValue,
-    });
 
     // Map mood to temperature with wider range (0.6 to 0.8)
     const temperature = this.calculateTemperature(quantumState.moodValue);
@@ -46,11 +41,6 @@ export class QuantumPersonalityMapper {
     );
 
     // Add debug logging for final configuration
-    log.warn("Generated personality settings:", {
-      temperature,
-      creativityLevel,
-      personalityConfig,
-    });
 
     return {
       temperature,
@@ -76,13 +66,6 @@ export class QuantumPersonalityMapper {
     );
 
     // Log the temperature calculation process
-    log.warn("Temperature calculation:", {
-      moodValue,
-      baseTemp,
-      variation,
-      finalTemp,
-      range,
-    });
 
     return Number(finalTemp.toFixed(3)); // Round to 3 decimal places
   }

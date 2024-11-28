@@ -27,7 +27,7 @@ export type ResponseType =
 
 export interface StyleSettings {
   enabled?: boolean;
-  tone: string[];
+  tone?: string[];
   guidelines: string[];
   platform?: Platform;
   formatting: {
@@ -40,7 +40,7 @@ export interface StyleSettings {
 
 export interface PlatformStylesInput {
   enabled: boolean;
-  defaultTone: string[];
+  defaultTone?: string[];
   defaultGuidelines: string[];
   styles: {
     [key: string]: StyleSettings;
@@ -49,7 +49,7 @@ export interface PlatformStylesInput {
 
 export interface PlatformStyles {
   enabled: boolean;
-  defaultTone: string[];
+  defaultTone?: string[];
   defaultGuidelines: string[];
   styles: {
     [K in ResponseType]?: StyleSettings;
@@ -58,8 +58,8 @@ export interface PlatformStyles {
 
 export interface ResponseStyles {
   default: {
-    tone: string[];
-    personality: string[];
+    tone?: string[];
+    personality?: string[];
     guidelines: string[];
   };
   platforms: {

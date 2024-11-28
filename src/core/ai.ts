@@ -17,6 +17,7 @@ import {
 import { eq } from "drizzle-orm";
 import { drizzle, PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { CoinGeckoManager } from "./managers/coingecko";
 import { ConversationManager } from "./managers/conversation";
 import { P2PNetwork } from "./managers/libp2p";
 import { QuantumStateManager } from "./managers/quantum";
@@ -24,6 +25,8 @@ import { QuantumPersonalityMapper } from "./managers/quantum-personality";
 import { ToolManager } from "./managers/tools";
 import { APIServer, type ServerConfig } from "./platform/api/server";
 import { TelegramClient } from "./platform/telegram/telegram";
+import type { TwitterClient } from "./platform/twitter/api/src/client";
+import { TwitterManager, type TwitterConfig } from "./platform/twitter/twitter";
 import { EventService } from "./services/Event";
 import { InteractionService } from "./services/Interaction";
 import {
@@ -44,6 +47,20 @@ export interface AIOptions {
     telegram?: InteractionDefaults;
     twitter?: InteractionDefaults;
   };
+  coingecko?: {
+    enabled: boolean;
+    apiKey?: string;
+    updateInterval?: string;
+    initialScan?: {
+      enabled: boolean;
+      batchSize?: number;
+      delay?: number;
+    };
+    cache?: {
+      enabled: boolean;
+      ttl: number;
+    };
+  };
   quantum?: {
     enabled: boolean;
     cronSchedule?: string;
@@ -55,6 +72,7 @@ export interface AIOptions {
       enabled: boolean;
       token: string;
     };
+    twitter?: TwitterConfig;
     api?: {
       enabled: boolean;
       port: number;
@@ -80,10 +98,10 @@ export class ai {
   public llmManager: LLMManager;
   private characterBuilder: CharacterBuilder;
   public db: PostgresJsDatabase<typeof dbSchemas>;
-  private interactionService: InteractionService;
+  private interactionService!: InteractionService;
   public eventService: EventService;
   private toolManager: ToolManager;
-  private conversationManager: ConversationManager;
+  private conversationManager!: ConversationManager;
   public character!: Character;
   public telegramClient?: TelegramClient;
   public apiServer?: APIServer;
@@ -95,6 +113,8 @@ export class ai {
   };
   private quantumStateManager?: QuantumStateManager;
   private stateUpdateService?: StateUpdateService;
+  private twitterManager?: TwitterManager;
+  private coinGeckoManager?: CoinGeckoManager;
   private isShuttingDown: boolean = false;
   constructor(options: AIOptions) {
     this.queryClient = postgres(options.databaseUrl, {
@@ -112,28 +132,20 @@ export class ai {
     this.memoryManager = new MemoryManager(this.db, this.llmManager);
     this.eventService = new EventService(this.db, this.characterManager);
     this.toolManager = new ToolManager({ toolsDir: options.toolsDir });
-    this.interactionService = new InteractionService(
-      this.db,
-      this.characterManager,
-      this.styleManager,
-      this.llmManager,
-      this.memoryManager,
-      this.eventService,
-      this.toolManager
-    );
-    this.conversationManager = new ConversationManager(
-      this.db,
-      this.interactionService,
-      this.eventService,
-      this.llmManager
-    );
+
     this.platformDefaults = options.platformDefaults;
+    if (options.coingecko?.enabled) {
+      this.coinGeckoManager = new CoinGeckoManager(
+        options.coingecko,
+        this.db,
+        this.llmManager
+      );
+    }
   }
 
   // Move character initialization to a separate async method
   private async initializeQuantumFeatures(options: AIOptions) {
     if (!options.quantum?.enabled) return;
-    log.warn("initializing quantum features");
 
     // Initialize quantum components
     this.quantumStateManager = new QuantumStateManager(
@@ -143,7 +155,6 @@ export class ai {
 
     // Verify quantum state exists
     const currentState = await this.quantumStateManager.getLatestState();
-    log.warn("Current quantum state:", currentState);
 
     // Create quantum personality mapper
     const quantumPersonalityMapper = new QuantumPersonalityMapper(
@@ -151,10 +162,8 @@ export class ai {
       this.character
     );
 
-    // Test the mapping
     const initialPersonality =
       await quantumPersonalityMapper.mapQuantumToPersonality();
-    log.warn("Initial quantum personality mapping:", initialPersonality);
 
     // Reinitialize LLM manager with quantum features
     this.llmManager = new LLMManager(
@@ -166,27 +175,6 @@ export class ai {
       this.quantumStateManager,
       this.character
     );
-
-    // Update the interactionService with the new LLM manager
-    this.interactionService = new InteractionService(
-      this.db,
-      this.characterManager,
-      this.styleManager,
-      this.llmManager, // Pass the updated LLM manager
-      this.memoryManager,
-      this.eventService,
-      this.toolManager
-    );
-
-    // Update the conversation manager with the new interaction service
-    this.conversationManager = new ConversationManager(
-      this.db,
-      this.interactionService,
-      this.eventService,
-      this.llmManager
-    );
-
-    log.warn("Services reinitialized with quantum features");
   }
 
   // Static factory method for creating a properly initialized instance
@@ -205,8 +193,52 @@ export class ai {
       );
     }
 
+    if (instance.coinGeckoManager) {
+      log.info("Starting CoinGecko manager...");
+      await instance.coinGeckoManager.start();
+      log.info("CoinGecko manager initialized successfully!");
+      //await instance.coinGeckoManager.updateAllCoinDetails();
+    }
+
     // Now initialize quantum features after character is set
     await instance.initializeQuantumFeatures(options);
+
+    let twitterClient: TwitterClient | undefined;
+    if (options.platforms?.twitter?.enabled) {
+      log.info("Initializing Twitter manager...");
+      instance.twitterManager = await TwitterManager.create(
+        options.platforms.twitter,
+        instance,
+        options.platformDefaults?.twitter
+      );
+      const twitterClient = instance.twitterManager.getClient();
+      log.info("Got Twitter client from manager:", !!twitterClient);
+      // Create preprocessing manager with the initialized client
+      // Create InteractionService once with whatever client we have (or undefined)
+      instance.interactionService = new InteractionService(
+        instance.db,
+        instance.characterManager,
+        instance.styleManager,
+        instance.llmManager,
+        instance.memoryManager,
+        instance.eventService,
+        instance.toolManager,
+        twitterClient
+      );
+
+      // Create ConversationManager after InteractionService
+      instance.conversationManager = new ConversationManager(
+        instance.db,
+        instance.interactionService,
+        instance.eventService,
+        instance.llmManager
+      );
+
+      await instance.twitterManager.start(
+        options.platforms.twitter.checkInterval
+      );
+      log.info("Twitter manager initialized successfully!");
+    }
 
     // Initialize platforms if configured
     if (options.platforms?.telegram?.enabled) {
@@ -218,6 +250,21 @@ export class ai {
     } else {
       log.info("Telegram client not enabled");
     }
+
+    /* if (options.platforms?.twitter?.enabled) {
+      log.info("Initializing Twitter manager...");
+      instance.twitterManager = await TwitterManager.create(
+        options.platforms.twitter,
+        instance,
+        options.platformDefaults?.twitter
+      );
+      await instance.twitterManager.start(
+        options.platforms.twitter.checkInterval
+      );
+      log.info("Twitter manager initialized successfully!");
+    } else {
+      log.info("Twitter manager not enabled");
+    } */
 
     if (options.platforms?.api?.enabled) {
       log.info("Initializing API server...");
@@ -276,7 +323,6 @@ export class ai {
     }
 
     if (options.quantum?.enabled && instance.quantumStateManager) {
-      log.info("Initializing quantum state service...");
       const updateConfig: StateUpdateConfig = {
         enabled: true,
         cronSchedule: options.quantum.cronSchedule || "0 * * * *", // Default to hourly
@@ -361,6 +407,11 @@ export class ai {
       shutdownTasks.push(Promise.resolve(this.telegramClient.stop()));
     }
 
+    if (this.twitterManager) {
+      log.info("Stopping Twitter manager...");
+      shutdownTasks.push(this.twitterManager.stop());
+    }
+
     // Stop API server if it exists
     if (this.apiServer) {
       log.info("Stopping API server...");
@@ -383,6 +434,11 @@ export class ai {
     if (this.stateUpdateService) {
       log.info("Stopping quantum state service...");
       shutdownTasks.push(this.stateUpdateService.stop());
+    }
+
+    if (this.coinGeckoManager) {
+      log.info("Stopping CoinGecko manager...");
+      shutdownTasks.push(this.coinGeckoManager.stop());
     }
 
     try {
