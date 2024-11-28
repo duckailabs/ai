@@ -30,7 +30,7 @@
     "db:drop": "drizzle-kit drop",
     "ducky:start": "tsx src/agent/index.ts"
   },
-  "version": "0.8.1",
+  "version": "1.0.0",
   "type": "module",
   "tsx": {
     "nodeModules": [
