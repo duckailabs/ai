@@ -79,7 +79,7 @@ const instance = await ai.initialize({
     posts: [
       {
         type: "image",
-        schedule: "0 */4 * * *", // Every 4 hours
+        schedule: "0 */2 * * *", // Every 4 hours
         enabled: true,
       },
       {
@@ -89,7 +89,7 @@ const instance = await ai.initialize({
       },
       {
         type: "movers_alpha",
-        schedule: "25 * * * *", // Every 52 minutes
+        schedule: "*/18 * * * *", // Every 20 minutes
         enabled: true,
       },
     ],
