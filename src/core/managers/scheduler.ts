@@ -63,6 +63,7 @@ export class ScheduledPostManager {
       if (!config.enabled) continue;
       const job = cron.schedule(config.schedule, async () => {
         try {
+          log.info(`Running scheduled post: ${config.type}`);
           await this.handleScheduledPost(config);
         } catch (error) {
           log.error(`Error in scheduled post (${config.type}):`, error);
@@ -82,6 +83,7 @@ export class ScheduledPostManager {
   }
 
   private async handleScheduledPost(config: ScheduledPostConfig) {
+    log.info(`Handling scheduled post: ${config.type}`);
     const correlationId = `scheduled-${config.type}-${Date.now()}`;
 
     // Check daily limit
@@ -94,6 +96,9 @@ export class ScheduledPostManager {
       switch (config.type) {
         case "image":
           await this.handleImagePost(correlationId);
+          break;
+        case "market_update":
+          await this.handleMarketUpdatePost(correlationId);
           break;
         // Add other types here as needed
         default:
@@ -218,6 +223,82 @@ export class ScheduledPostManager {
             imageGeneration: {
               url: imageUrl,
             },
+            user: {
+              id: "",
+              metadata: { correlationId },
+            },
+          }
+        );
+      }
+    } catch (error) {
+      await this.ai.eventService.createInteractionEvent("interaction.failed", {
+        input: "",
+        error: error instanceof Error ? error.message : "Unknown error",
+        timestamp: new Date().toISOString(),
+        messageId: "",
+        user: {
+          id: "",
+          metadata: { correlationId },
+        },
+      });
+      throw error;
+    }
+  }
+
+  private async handleMarketUpdatePost(correlationId: string) {
+    try {
+      // Get timeline context before generating content
+      // messages
+
+      // get market update from Fatduck backend
+      const marketUpdate = await this.ai.fatduckManager.getMarketUpdate("1hr");
+      if (marketUpdate.marketAnalysis.length === 0) {
+        log.warn("No market update found");
+        return;
+      }
+      // Generate image post content with timeline context
+      const { tweetText } =
+        await this.ai.llmManager.generateScheduledMarketUpdate({
+          marketUpdateContext: marketUpdate,
+        });
+
+      // Track content generation
+      await this.ai.eventService.createInteractionEvent("interaction.started", {
+        input: tweetText,
+        responseType: "image",
+        platform: "twitter",
+        timestamp: new Date().toISOString(),
+        messageId: "",
+        replyTo: "",
+        hasMention: false,
+        user: {
+          id: "",
+          metadata: { correlationId },
+        },
+      });
+
+      // Post to Twitter
+      if (this.debug) {
+        log.info("Debug mode enabled, skipping Twitter post");
+        log.info("Tweet text:", tweetText);
+        return;
+      }
+
+      if (this.twitterClient) {
+        const tweet = await this.twitterClient.sendTweet(tweetText);
+        //const tweet = { id: "1234567890" };
+
+        await this.ai.eventService.createInteractionEvent(
+          "interaction.completed",
+          {
+            input: tweetText,
+            response: tweet.id,
+            responseType: "image",
+            platform: "twitter",
+            processingTime: 0,
+            timestamp: new Date().toISOString(),
+            messageId: "",
+            replyTo: "",
             user: {
               id: "",
               metadata: { correlationId },

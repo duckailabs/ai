@@ -234,9 +234,9 @@ export class TwitterManager {
     const correlationId = `twitter-${tweet.id}-${Date.now()}`;
 
     try {
-      log.info(`Handling mention for tweet ${tweet.id}`, {
+      /*       log.info(`Handling mention for tweet ${tweet.id}`, {
         ...tweet,
-      });
+      }); */
       let referencedTweet: Tweet | null = null;
       if (tweet.referencedTweets?.replied) {
         referencedTweet = await this.client.getTweet(
@@ -368,11 +368,11 @@ export class TwitterManager {
         maxTweets: this.config.maxTweetsPerCheck || 10,
         searchMode: "Latest",
       });
-      log.info(`Found ${tweets.length} tweets`);
+      /* log.info(`Found ${tweets.length} tweets`);
       log.info(
         `Tweets:`,
         tweets.map((t) => t.text)
-      );
+      ); */
       if (tweets.length === 0) return;
 
       // Process tweets in chronological order (oldest first)
