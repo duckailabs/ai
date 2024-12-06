@@ -10,11 +10,29 @@ import {
   QuantumPersonalityMapper,
   type QuantumPersonalitySettings,
 } from "./quantum-personality";
-interface TimelineTweet {
+export interface TimelineTweet {
   id: string;
   text: string;
   authorUsername: string;
   createdAt: string;
+}
+
+export interface TokenTimelineData {
+  symbol: string;
+  priceChange: number;
+  handle: string;
+  tweets: {
+    text: string;
+    createdAt: string;
+  }[];
+}
+
+interface TokenAnalysisResult {
+  selectedTokens: {
+    symbol: string;
+    priceChange: number;
+    analysis: string;
+  }[];
 }
 
 interface TimelineContext {
@@ -774,7 +792,106 @@ RULES: NO QUOTATION MARKS around the response just give the response`,
       response: response.choices[0].message.content,
     });
     return response.choices[0].message.content;
+  }
 
-    return null;
+  async analyzeTokenTimelines(
+    timelineData: TokenTimelineData[]
+  ): Promise<TokenAnalysisResult> {
+    try {
+      const character = await this.characterManager.getCharacter();
+      if (!character) throw new Error("Character not found");
+
+      // Get personality settings
+      const personalitySettings = this.quantumPersonalityMapper
+        ? await this.quantumPersonalityMapper.mapQuantumToPersonality()
+        : undefined;
+
+      const moodModifiers = personalitySettings?.styleModifiers.tone || [];
+
+      const completion = await this.openai.chat.completions.create({
+        model: this.config.llm.model,
+        messages: [
+          {
+            role: "system",
+            content: `You are a JSON-only responder. You must return a valid JSON object matching this exact structure:
+  {
+    "selectedTokens": [
+      {
+        "symbol": "string",
+        "priceChange": number,
+        "analysis": "string"
+      }
+    ]
+  }
+  
+You are ${character.name}. ${character.bio}
+Personality: ${
+              personalitySettings?.personalityTraits.join(", ") ||
+              character.personalityTraits.join(", ")
+            }
+Mood: ${moodModifiers.join(", ")}
+
+Guidelines: ${character.responseStyles.platforms.twitter?.styles.tweet_reply?.guidelines.join(
+              ", "
+            )}
+
+  Analyze these token movements and include key developments:
+  ${JSON.stringify(timelineData, null, 2)}
+  
+  Your JSON analysis should:
+  1. Pick 1-2 most interesting tokens
+  2. Be playful but informative
+  3. Focus on major news and updates
+  4. No emojis
+  5. No quotes around the response
+  6. If you mention the twitter handle, use the @ symbol
+
+  IMPORTANT: Return ONLY valid JSON, no other text.`,
+          },
+        ],
+        temperature:
+          personalitySettings?.temperature ||
+          this.config.llm.temperature ||
+          0.7,
+        response_format: { type: "json_object" },
+      });
+
+      const content = completion.choices[0].message?.content;
+      if (!content) {
+        throw new Error("Empty response from LLM");
+      }
+
+      try {
+        const response = JSON.parse(content);
+        if (!response.selectedTokens?.length) {
+          throw new Error("Invalid response structure");
+        }
+        return response as TokenAnalysisResult;
+      } catch (parseError) {
+        log.error("Failed to parse LLM response:", content);
+        // Return a safe fallback response
+        return {
+          selectedTokens: [
+            {
+              symbol: timelineData[0].symbol,
+              priceChange: timelineData[0].priceChange,
+              analysis: "Notable price movement and community activity 📈",
+            },
+          ],
+        };
+      }
+    } catch (error) {
+      console.error("Error analyzing token timelines:", error);
+      // Return a safe fallback if anything fails
+      return {
+        selectedTokens: [
+          {
+            symbol: timelineData[0].symbol,
+            priceChange: timelineData[0].priceChange,
+            analysis: "Significant market activity detected 📊",
+          },
+        ],
+      };
+    }
   }
 }
