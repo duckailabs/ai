@@ -348,7 +348,7 @@ export class ScheduledPostManager {
             log.info(
               `${movement.symbol} ${changePrefix}${change}% | Score: ${score}`
             );
-            tweetText += `$${movement.symbol} ${changePrefix}${change}% | Score: ${score}\n`;
+            tweetText += `$${movement.symbol} ${changePrefix}${change}% | Score: ${score} | @${movement.metadata?.twitterHandle}\n`;
           }
           tweetText += "\n";
         }
