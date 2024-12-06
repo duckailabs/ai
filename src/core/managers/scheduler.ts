@@ -354,71 +354,67 @@ export class ScheduledPostManager {
         }
       }
 
+      // Filter tokens to only include those with positive price movement and Twitter handles
       const tokensWithTwitter = movementData.categories.flatMap((category) =>
-        category.movements.filter((m) => m.metadata?.twitterHandle)
-      );
-
-      // 2. Fetch ALL their recent timelines in parallel
-      const timelineResults = await Promise.allSettled(
-        tokensWithTwitter.map(async (token) => ({
-          symbol: token.symbol,
-          priceChange: token.metrics.price.change24h,
-          handle: token.metadata?.twitterHandle!,
-          timeline: await this.twitterClient?.getUserTimeline(
-            token.metadata?.twitterHandle!,
-            {
-              excludeRetweets: true,
-              limit: 10,
-            }
-          ),
-        }))
-      );
-
-      const timelineData = timelineResults
-        .filter(
-          (
-            result
-          ): result is PromiseFulfilledResult<{
-            symbol: string;
-            priceChange: number;
-            handle: string;
-            timeline: any;
-          }> =>
-            result.status === "fulfilled" && result.value.timeline !== undefined
+        category.movements.filter(
+          (m) => m.metrics.price.change24h > 0 && m.metadata?.twitterHandle
         )
-        .map((result) => ({
-          symbol: result.value.symbol,
-          priceChange: result.value.priceChange,
-          handle: result.value.handle,
-          tweets:
-            result.value.timeline?.map((tweet: any) => ({
-              text: tweet.text,
-              createdAt: tweet.createdAt?.toISOString() || "",
-            })) || [],
-        }));
+      );
 
-      // Only proceed with analysis if we have any valid timelines
-      if (timelineData.length > 0) {
-        const analysis = await this.ai.llmManager.analyzeTokenTimelines(
-          timelineData
+      // Only proceed if we have positive performers to analyze
+      if (tokensWithTwitter.length > 0) {
+        // Fetch timelines only for positive performers
+        const timelineResults = await Promise.allSettled(
+          tokensWithTwitter.map(async (token) => ({
+            symbol: token.symbol,
+            priceChange: token.metrics.price.change24h,
+            handle: token.metadata?.twitterHandle!,
+            timeline: await this.twitterClient?.getUserTimeline(
+              token.metadata?.twitterHandle!,
+              {
+                excludeRetweets: true,
+                limit: 10,
+              }
+            ),
+          }))
         );
 
-        tweetText += `My's Analysis:\n`;
-        if (analysis.selectedTokens.length > 0) {
-          tweetText += `$${analysis.selectedTokens[0].symbol}: ${analysis.selectedTokens[0].analysis}\n\n`;
+        const timelineData = timelineResults
+          .filter(
+            (
+              result
+            ): result is PromiseFulfilledResult<{
+              symbol: string;
+              priceChange: number;
+              handle: string;
+              timeline: any;
+            }> =>
+              result.status === "fulfilled" &&
+              result.value.timeline !== undefined
+          )
+          .map((result) => ({
+            symbol: result.value.symbol,
+            priceChange: result.value.priceChange,
+            handle: result.value.handle,
+            tweets:
+              result.value.timeline?.map((tweet: any) => ({
+                text: tweet.text,
+                createdAt: tweet.createdAt?.toISOString() || "",
+              })) || [],
+          }));
+
+        // Only proceed with analysis if we have any valid timelines
+        if (timelineData.length > 0) {
+          const analysis = await this.ai.llmManager.analyzeTokenTimelines(
+            timelineData
+          );
+
+          tweetText += `My's Analysis:\n`;
+          if (analysis.selectedTokens.length > 0) {
+            tweetText += `$${analysis.selectedTokens[0].symbol}: ${analysis.selectedTokens[0].analysis}\n\n`;
+          }
         }
       }
-      // 3. Ask LLM to analyze ALL timelines and pick 1-2 most newsworthy
-      const analysis = await this.ai.llmManager.analyzeTokenTimelines(
-        timelineData.map((t) => ({
-          symbol: t.symbol,
-          priceChange: t.priceChange,
-          handle: t.handle,
-          tweets: t.tweets,
-        }))
-      );
-
-      tweetText += `$${analysis.selectedTokens[0].symbol}: ${analysis.selectedTokens[0].analysis}\n\n`;
 
       tweetText += `Powered by @FatduckAI 🦆`;
 

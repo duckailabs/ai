@@ -80,12 +80,12 @@ const instance = await ai.initialize({
       {
         type: "image",
         schedule: "0 */4 * * *", // Every 4 hours
-        enabled: true,
+        enabled: false,
       },
       {
         type: "market_update",
         schedule: "30 * * * *", // Every 30 minutes
-        enabled: true,
+        enabled: false,
       },
       {
         type: "movers_alpha",
@@ -93,12 +93,12 @@ const instance = await ai.initialize({
         enabled: true,
       },
     ],
-    debug: false,
-    runOnStartup: false,
+    debug: true,
+    runOnStartup: true,
   },
   platforms: {
     telegram: {
-      enabled: true,
+      enabled: false,
       token: process.env.TELEGRAM_BOT_TOKEN!,
     },
     api: {
