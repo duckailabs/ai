@@ -17,7 +17,7 @@ interface CategoryMovementsData {
       metrics: {
         price: {
           current: number;
-          change24h: number;
+          change1h: number;
         };
       };
       score: string;
