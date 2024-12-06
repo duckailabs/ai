@@ -416,8 +416,6 @@ export class ScheduledPostManager {
         }
       }
 
-      tweetText += `Powered by @FatduckAI 🦆`;
-
       // Track content generation
       await this.ai.eventService.createInteractionEvent("interaction.started", {
         input: tweetText,
