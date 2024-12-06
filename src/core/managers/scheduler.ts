@@ -342,13 +342,17 @@ export class ScheduledPostManager {
           // Add all movements (up to 3 per category)
           for (const movement of categoryData.movements.slice(0, 3)) {
             const changePrefix =
-              movement.metrics.price.change24h >= 0 ? "+" : "";
-            const change = movement.metrics.price.change24h.toFixed(1);
-            const score = Number(movement.score).toFixed(1);
+              movement.metrics.price.change1h >= 0 ? "+" : "";
             log.info(
-              `${movement.symbol} ${changePrefix}${change}% | Score: ${score}`
+              movement.metrics.price.current.toString(),
+              movement.metrics.price.change1h
             );
-            tweetText += `$${movement.symbol} ${changePrefix}${change}% | Score: ${score} | @${movement.metadata?.twitterHandle}\n`;
+            const change = movement.metrics.price.change1h.toFixed(1);
+            const score = 0;
+
+            tweetText += `$${movement.symbol} ${changePrefix}${change}% | @${
+              movement.metadata?.twitterHandle || ""
+            }\n`;
           }
           tweetText += "\n";
         }
@@ -357,7 +361,7 @@ export class ScheduledPostManager {
       // Filter tokens to only include those with positive price movement and Twitter handles
       const tokensWithTwitter = movementData.categories.flatMap((category) =>
         category.movements.filter(
-          (m) => m.metrics.price.change24h > 0 && m.metadata?.twitterHandle
+          (m) => m.metrics.price.change1h > 0 && m.metadata?.twitterHandle
         )
       );
 
@@ -367,7 +371,7 @@ export class ScheduledPostManager {
         const timelineResults = await Promise.allSettled(
           tokensWithTwitter.map(async (token) => ({
             symbol: token.symbol,
-            priceChange: token.metrics.price.change24h,
+            priceChange: token.metrics.price.change1h,
             handle: token.metadata?.twitterHandle!,
             timeline: await this.twitterClient?.getUserTimeline(
               token.metadata?.twitterHandle!,
