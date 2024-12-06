@@ -332,7 +332,7 @@ export class ScheduledPostManager {
       );
 
       // Format movement update text
-      let tweetText = `🚀 Significant Moves Alert\n\n`;
+      let tweetText = `🚀 Significant last hour moves\n\n`;
       // Process each category's movements
       for (const categoryData of movementData.categories) {
         if (categoryData.movements.length > 0) {
@@ -350,8 +350,10 @@ export class ScheduledPostManager {
             const change = movement.metrics.price.change1h.toFixed(1);
             const score = 0;
 
-            tweetText += `$${movement.symbol} ${changePrefix}${change}% | @${
-              movement.metadata?.twitterHandle || ""
+            tweetText += `$${movement.symbol} ${changePrefix}${change}% | ${
+              movement.metadata?.twitterHandle
+                ? `@${movement.metadata?.twitterHandle}`
+                : ""
             }\n`;
           }
           tweetText += "\n";
