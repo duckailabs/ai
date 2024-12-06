@@ -17,8 +17,11 @@ import {
 import { eq } from "drizzle-orm";
 import { drizzle, PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { ContextResolver } from "./goals/context";
+import { PostGoal } from "./goals/post";
 import { CoinGeckoManager } from "./managers/coingecko";
 import { ConversationManager } from "./managers/conversation";
+import { FatduckManager, type FatduckConfig } from "./managers/fatduck";
 import { P2PNetwork } from "./managers/libp2p";
 import { QuantumStateManager } from "./managers/quantum";
 import { QuantumPersonalityMapper } from "./managers/quantum-personality";
@@ -47,6 +50,7 @@ export interface AIOptions {
   toolsDir?: string | "./ai/tools/";
   character: CreateCharacterInput;
   refreshCharacterOnRestart?: boolean;
+  fatduck: FatduckConfig;
   scheduledPosts?: {
     enabled: boolean;
     posts: ScheduledPostConfig[];
@@ -127,6 +131,9 @@ export class ai {
   private coinGeckoManager?: CoinGeckoManager;
   private scheduledPostManager?: ScheduledPostManager;
   private isShuttingDown: boolean = false;
+  public fatduckManager: FatduckManager;
+  public goalManager: PostGoal;
+  private contextResolver: ContextResolver;
   constructor(options: AIOptions) {
     this.queryClient = postgres(options.databaseUrl, {
       max: 20,
@@ -137,7 +144,15 @@ export class ai {
     this.characterManager = new CharacterManager(this.db);
 
     // Initialize basic managers without quantum features
+    this.fatduckManager = new FatduckManager(options.fatduck);
+    this.contextResolver = new ContextResolver(this.fatduckManager);
     this.llmManager = new LLMManager(options.llmConfig, this.characterManager);
+    this.goalManager = new PostGoal(
+      this.db,
+      this.llmManager,
+      this.contextResolver,
+      this.fatduckManager
+    );
     this.styleManager = new StyleManager(this.characterManager);
     this.characterBuilder = new CharacterBuilder(this.llmManager);
     this.memoryManager = new MemoryManager(this.db, this.llmManager);
@@ -177,6 +192,7 @@ export class ai {
       await quantumPersonalityMapper.mapQuantumToPersonality();
 
     // Reinitialize LLM manager with quantum features
+
     this.llmManager = new LLMManager(
       {
         ...options.llmConfig,
