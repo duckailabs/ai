@@ -1,6 +1,44 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig } from "axios";
 import { log } from "../utils/logger";
 
+interface CategoryMovementsData {
+  categories: {
+    category: {
+      id: string;
+      name: string;
+      slug: string;
+    };
+    movements: {
+      symbol: string;
+      name: string;
+      metadata?: {
+        twitterHandle?: string;
+      };
+      metrics: {
+        price: {
+          current: number;
+          change24h: number;
+        };
+      };
+      score: string;
+    }[];
+    metadata: {
+      movementCount: number;
+      averageScore: number;
+      timestamp: string;
+    };
+  }[];
+  scan: {
+    id: string;
+    timestamp: string;
+    metadata: {
+      categoriesScanned: number;
+      coinsScanned: number;
+      significantMovements: number;
+    };
+  };
+}
+
 export interface FatduckConfig {
   baseUrl: string;
   apiKey?: string;
@@ -63,6 +101,24 @@ export class FatduckManager {
       ApiResponse<MarketUpdateData>
     >("/api/marketUpdate", {
       params: { interval: interval || "24hr" },
+    });
+
+    if (!response.success) {
+      throw new Error(response.error.message);
+    }
+
+    return response.data;
+  }
+
+  async getCategoryMovements(
+    categories: string[]
+  ): Promise<CategoryMovementsData> {
+    const { data: response } = await this.client.get<
+      ApiResponse<CategoryMovementsData>
+    >("/api/categorySummary", {
+      params: {
+        categories: categories.join(","),
+      },
     });
 
     if (!response.success) {

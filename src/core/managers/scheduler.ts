@@ -5,7 +5,7 @@ import type { TwitterClient } from "../platform/twitter/api/src/client";
 import { log } from "../utils/logger";
 
 export interface ScheduledPostConfig {
-  type: "image" | "market_update" | "daily_alpha";
+  type: "image" | "market_update" | "movers_alpha";
   schedule: string;
   enabled: boolean;
   maxPerDay?: number;
@@ -100,7 +100,9 @@ export class ScheduledPostManager {
         case "market_update":
           await this.handleMarketUpdatePost(correlationId);
           break;
-        // Add other types here as needed
+        case "movers_alpha":
+          await this.handleMovementPost(correlationId);
+          break;
         default:
           throw new Error(`Unsupported post type: ${config.type}`);
       }
@@ -294,6 +296,163 @@ export class ScheduledPostManager {
             input: tweetText,
             response: tweet.id,
             responseType: "image",
+            platform: "twitter",
+            processingTime: 0,
+            timestamp: new Date().toISOString(),
+            messageId: "",
+            replyTo: "",
+            user: {
+              id: "",
+              metadata: { correlationId },
+            },
+          }
+        );
+      }
+    } catch (error) {
+      await this.ai.eventService.createInteractionEvent("interaction.failed", {
+        input: "",
+        error: error instanceof Error ? error.message : "Unknown error",
+        timestamp: new Date().toISOString(),
+        messageId: "",
+        user: {
+          id: "",
+          metadata: { correlationId },
+        },
+      });
+      throw error;
+    }
+  }
+
+  private async handleMovementPost(correlationId: string) {
+    try {
+      // Get movement data for all tracked categories
+      const categories = ["virtuals-protocol-ecosystem", "ai-meme-coins"];
+      const movementData = await this.ai.fatduckManager.getCategoryMovements(
+        categories
+      );
+
+      // Format movement update text
+      let tweetText = `🚀 Significant Moves Alert\n\n`;
+      // Process each category's movements
+      for (const categoryData of movementData.categories) {
+        if (categoryData.movements.length > 0) {
+          // Add category header with emoji based on category
+          tweetText += `${categoryData.category.name}:\n`;
+
+          // Add all movements (up to 3 per category)
+          for (const movement of categoryData.movements.slice(0, 3)) {
+            const changePrefix =
+              movement.metrics.price.change24h >= 0 ? "+" : "";
+            const change = movement.metrics.price.change24h.toFixed(1);
+            const score = Number(movement.score).toFixed(1);
+            log.info(
+              `${movement.symbol} ${changePrefix}${change}% | Score: ${score}`
+            );
+            tweetText += `$${movement.symbol} ${changePrefix}${change}% | Score: ${score}\n`;
+          }
+          tweetText += "\n";
+        }
+      }
+
+      const tokensWithTwitter = movementData.categories.flatMap((category) =>
+        category.movements.filter((m) => m.metadata?.twitterHandle)
+      );
+
+      // 2. Fetch ALL their recent timelines in parallel
+      const timelineResults = await Promise.allSettled(
+        tokensWithTwitter.map(async (token) => ({
+          symbol: token.symbol,
+          priceChange: token.metrics.price.change24h,
+          handle: token.metadata?.twitterHandle!,
+          timeline: await this.twitterClient?.getUserTimeline(
+            token.metadata?.twitterHandle!,
+            {
+              excludeRetweets: true,
+              limit: 10,
+            }
+          ),
+        }))
+      );
+
+      const timelineData = timelineResults
+        .filter(
+          (
+            result
+          ): result is PromiseFulfilledResult<{
+            symbol: string;
+            priceChange: number;
+            handle: string;
+            timeline: any;
+          }> =>
+            result.status === "fulfilled" && result.value.timeline !== undefined
+        )
+        .map((result) => ({
+          symbol: result.value.symbol,
+          priceChange: result.value.priceChange,
+          handle: result.value.handle,
+          tweets:
+            result.value.timeline?.map((tweet: any) => ({
+              text: tweet.text,
+              createdAt: tweet.createdAt?.toISOString() || "",
+            })) || [],
+        }));
+
+      // Only proceed with analysis if we have any valid timelines
+      if (timelineData.length > 0) {
+        const analysis = await this.ai.llmManager.analyzeTokenTimelines(
+          timelineData
+        );
+
+        tweetText += `My's Analysis:\n`;
+        if (analysis.selectedTokens.length > 0) {
+          tweetText += `$${analysis.selectedTokens[0].symbol}: ${analysis.selectedTokens[0].analysis}\n\n`;
+        }
+      }
+      // 3. Ask LLM to analyze ALL timelines and pick 1-2 most newsworthy
+      const analysis = await this.ai.llmManager.analyzeTokenTimelines(
+        timelineData.map((t) => ({
+          symbol: t.symbol,
+          priceChange: t.priceChange,
+          handle: t.handle,
+          tweets: t.tweets,
+        }))
+      );
+
+      tweetText += `$${analysis.selectedTokens[0].symbol}: ${analysis.selectedTokens[0].analysis}\n\n`;
+
+      tweetText += `Powered by @FatduckAI 🦆`;
+
+      // Track content generation
+      await this.ai.eventService.createInteractionEvent("interaction.started", {
+        input: tweetText,
+        responseType: "movement_update",
+        platform: "twitter",
+        timestamp: new Date().toISOString(),
+        messageId: "",
+        replyTo: "",
+        hasMention: false,
+        user: {
+          id: "",
+          metadata: { correlationId },
+        },
+      });
+
+      // Post to Twitter
+      if (this.debug) {
+        log.info("Debug mode enabled, skipping Twitter post");
+        log.info("Tweet text:", tweetText);
+        return;
+      }
+
+      if (this.twitterClient) {
+        const tweet = await this.twitterClient.sendTweet(tweetText);
+
+        await this.ai.eventService.createInteractionEvent(
+          "interaction.completed",
+          {
+            input: tweetText,
+            response: tweet.id,
+            responseType: "movement_update",
             platform: "twitter",
             processingTime: 0,
             timestamp: new Date().toISOString(),
