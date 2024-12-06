@@ -409,14 +409,12 @@ export class ScheduledPostManager {
             timelineData
           );
 
-          tweetText += `My's Analysis:\n`;
+          tweetText += `My Analysis:\n`;
           if (analysis.selectedTokens.length > 0) {
             tweetText += `$${analysis.selectedTokens[0].symbol}: ${analysis.selectedTokens[0].analysis}\n\n`;
           }
         }
       }
-
-      tweetText += `Powered by @FatduckAI 🦆`;
 
       // Track content generation
       await this.ai.eventService.createInteractionEvent("interaction.started", {
