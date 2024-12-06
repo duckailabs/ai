@@ -99,6 +99,83 @@
       "when": 1732805261530,
       "tag": "0013_furry_squadron_supreme",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1733133226219,
+      "tag": "0014_fantastic_squadron_supreme",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1733134204082,
+      "tag": "0015_young_gateway",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1733134280936,
+      "tag": "0016_wakeful_mastermind",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1733134458239,
+      "tag": "0017_ancient_rocket_raccoon",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1733402245145,
+      "tag": "0018_workable_praxagora",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1733403537923,
+      "tag": "0019_good_patch",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1733403599560,
+      "tag": "0020_public_guardsmen",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1733403620612,
+      "tag": "0021_early_spiral",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1733404955163,
+      "tag": "0022_lumpy_boomer",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1733406555316,
+      "tag": "0023_bouncy_sally_floyd",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1733407150184,
+      "tag": "0024_watery_mandrill",
+      "breakpoints": true
     }
   ]
 }

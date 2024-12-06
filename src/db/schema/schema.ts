@@ -52,6 +52,7 @@ export const platformEnum = pgEnum("platform", [
   "telegram",
   "slack",
   "api",
+  "system",
 ]);
 
 export const responseTypeEnum = pgEnum("response_type", [
@@ -293,31 +294,6 @@ export const events = pgTable("events", {
     .default(sql`now()`),
 });
 
-// Goals Table
-export const goals = pgTable("goals", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  characterId: uuid("character_id")
-    .notNull()
-    .references(() => characters.id, { onDelete: "cascade" }),
-  description: text("description").notNull(),
-  status: varchar("status", { length: 50 }).notNull().default("active"),
-  progress: numeric("progress").notNull().default("0"),
-  metadata: jsonb("metadata")
-    .$type<{
-      dependencies?: string[];
-      completionCriteria?: string[];
-      notes?: string[];
-    }>()
-    .default({}),
-  createdAt: timestamp("created_at")
-    .notNull()
-    .default(sql`now()`),
-  completedAt: timestamp("completed_at"),
-  updatedAt: timestamp("updated_at")
-    .notNull()
-    .default(sql`now()`),
-});
-
 // Export the relations
 export const relations = {
   character: {
@@ -475,6 +451,5 @@ export type NewCharacter = typeof characters.$inferInsert;
 export type SocialRelation = typeof socialRelations.$inferSelect;
 export type Memory = typeof memories.$inferSelect;
 export type Event = typeof events.$inferSelect;
-export type Goal = typeof goals.$inferSelect;
 export type QuantumState = typeof quantumStates.$inferSelect;
 export type NewQuantumState = typeof quantumStates.$inferInsert;

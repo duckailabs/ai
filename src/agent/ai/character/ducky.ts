@@ -99,7 +99,17 @@ export const duckyCharacter: CreateCharacterInput & {
               "Highlight accumulation phases or unusual patterns",
               "No hashtags",
               "If you do not have the data, do not make up data",
+              "No quotes around the tweet",
             ],
+          },
+          custom_market_update: {
+            enabled: true,
+            tone: ["casual", "market-focused"],
+            formatting: {
+              maxLength: 2000,
+              allowMarkdown: false,
+            },
+            guidelines: ["Be verbose", "Use line breaks", "No emojis"],
           },
         },
       },

@@ -4,12 +4,12 @@ import type { ChatCompletionMessageParam } from "openai/resources/chat/completio
 import type { ImageGenerationResult } from "../types";
 import { log } from "../utils/logger";
 import type { CharacterManager } from "./character";
+import type { MarketUpdateData } from "./fatduck";
 import { QuantumStateManager } from "./quantum";
 import {
   QuantumPersonalityMapper,
   type QuantumPersonalitySettings,
 } from "./quantum-personality";
-
 interface TimelineTweet {
   id: string;
   text: string;
@@ -24,6 +24,10 @@ interface TimelineContext {
 
 interface ScheduledPostContext {
   timelineContext?: TimelineContext;
+}
+
+export interface ScheduledMarketUpdateContext {
+  marketUpdateContext?: MarketUpdateData;
 }
 
 export interface LLMConfig {
@@ -84,7 +88,6 @@ export class LLMManager {
     this.quantumStateManager = quantumStateManager;
     this.quantumPersonalityMapper = config.quantumPersonalityMapper;
     this.character = character;
-
     this.openai = new OpenAI({
       apiKey: this.config.apiKey,
       baseURL: this.config.baseURL,
@@ -573,6 +576,7 @@ Return only a number between 0 and 1.`;
   Token metrics and market data:
   ${JSON.stringify(context.timelineContext.tokenMetrics, null, 2)}
   
+
   Use this context to inform the tone and content of the image and tweet.
   `
         : "";
@@ -631,7 +635,7 @@ Return only a number between 0 and 1.`;
   Write a short, engaging tweet to accompany your latest generated image.
   Consider the recent timeline context and token metrics in your response.
   Follow Twitter style guidelines. Keep it under 200 characters to leave room for the image.
-  Match the current mood and market context in your response.`,
+  Match the current mood and market context in your response. RULES: NO QUOTES around the image description just the description`,
           },
         ],
       });
@@ -647,5 +651,130 @@ Return only a number between 0 and 1.`;
       console.error("Error generating scheduled image post:", error);
       throw error;
     }
+  }
+
+  async generateScheduledMarketUpdate(
+    context?: ScheduledMarketUpdateContext
+  ): Promise<{
+    tweetText: string;
+  }> {
+    try {
+      const character = await this.characterManager.getCharacter();
+      if (!character) throw new Error("Character not found");
+
+      // Get quantum personality if available
+      let personalitySettings: QuantumPersonalitySettings | undefined;
+      if (this.quantumPersonalityMapper) {
+        personalitySettings =
+          await this.quantumPersonalityMapper.mapQuantumToPersonality();
+      }
+
+      // Construct timeline context if available
+      const marketUpdatePrompt = context?.marketUpdateContext
+        ? `
+    Recent Market and Token News:
+    ${context.marketUpdateContext.marketAnalysis
+      .map(
+        (analysis, index) =>
+          `${index}: ${JSON.stringify(
+            {
+              summary: analysis.summary,
+              sentiment: analysis.sentiment,
+              keyTopics: analysis.keyTopics,
+              marketImpact: analysis.marketImpact,
+              mentionedCoins: analysis.mentionedCoins,
+              metrics: analysis.metrics,
+            },
+            null,
+            2
+          )}`
+      )
+      .join("\n")}
+  
+
+  Use this context to inform the tone and content of the tweet.
+  `
+        : "";
+
+      // Construct prompt using character style and quantum mood
+      const moodModifiers = personalitySettings?.styleModifiers.tone || [];
+      const messages = [
+        {
+          role: "system",
+          content: `You are ${character.name}. ${character.bio}
+Personality: ${
+            personalitySettings?.personalityTraits.join(", ") ||
+            character.personalityTraits.join(", ")
+          }
+Mood: ${moodModifiers.join(", ")}
+
+Guidelines: ${character.responseStyles.platforms.twitter?.styles.tweet_reply?.guidelines.join(
+            ", "
+          )}
+
+${marketUpdatePrompt}
+
+Write a summary of the recent market news and token metrics.
+
+Follow Twitter style guidelines.
+If refering to marketcap use millions or billions.
+You do not have to respond to every news story, if major news stories are mentioned, definitely include those.
+Preferece the analysis with 🦆 DUCKY MARKET UPDATE 🦆
+Stick to your character
+Be verbose.
+Use line breaks (two lines breaks) these do not count towards the character limit. 
+Keep response under 800 characters. 
+USE cashtags for coins.
+Do not make up data, only use the data from the market update.
+RULES: NO QUOTATION MARKS around the response just give the response`,
+        },
+      ];
+      // Generate tweet with matching quantum personality and timeline context
+      const tweetPrompt = await this.openai.chat.completions.create({
+        model: this.config.llm.model,
+        temperature:
+          personalitySettings?.temperature || this.config.llm.temperature,
+        messages: messages as ChatCompletionMessageParam[],
+      });
+
+      const tweetText = tweetPrompt.choices[0]?.message?.content;
+      if (!tweetText) throw new Error("Failed to generate tweet text");
+
+      return {
+        tweetText,
+      };
+    } catch (error) {
+      console.error("Error generating scheduled image post:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * You have a list of goals or tools to use, make an llm call to select the best goal or tool to use.
+   */
+  async generateResponseV3(prompt: string) {
+    let personalitySettings: QuantumPersonalitySettings | undefined;
+    let temperature: number;
+    if (this.quantumPersonalityMapper) {
+      personalitySettings =
+        await this.quantumPersonalityMapper.mapQuantumToPersonality();
+
+      // Use quantum temperature
+      temperature = personalitySettings.temperature;
+    } else {
+      temperature = this.config.llm.temperature || 0.7;
+    }
+
+    const response = await this.openai.chat.completions.create({
+      model: this.config.llm.model,
+      messages: [{ role: "user", content: prompt }],
+      temperature,
+    });
+    log.info("Response V3", {
+      response: response.choices[0].message.content,
+    });
+    return response.choices[0].message.content;
+
+    return null;
   }
 }

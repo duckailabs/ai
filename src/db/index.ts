@@ -2,6 +2,7 @@ import * as schema from "@/db/schema/schema";
 import dotenv from "dotenv";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { goals } from "./schema/goal";
 
 dotenv.config();
 
@@ -13,6 +14,7 @@ if (!connectionString) {
 
 export const dbSchemas = {
   ...schema,
+  goals: goals,
 } as const;
 
 // Type the combined schema

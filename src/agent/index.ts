@@ -41,6 +41,10 @@ async function loadTwitterCookies() {
 log.info(`Initializing Agent Ducky 00${port === 8001 ? 7 : 8}...`);
 const instance = await ai.initialize({
   databaseUrl: process.env.DATABASE_URL!,
+  fatduck: {
+    baseUrl: process.env.FATDUCK_API_URL!,
+    apiKey: process.env.FATDUCK_API_KEY!,
+  },
   llmConfig: {
     apiKey: process.env.TOGETHER_API_KEY!,
     baseURL: process.env.TOGETHER_API_URL!,
@@ -75,9 +79,13 @@ const instance = await ai.initialize({
     posts: [
       {
         type: "image",
-        schedule: "0 */4 * * *", // Every 4 hour
+        schedule: "0 */4 * * *", // Every 4 hours
+        enabled: false,
+      },
+      {
+        type: "market_update",
+        schedule: "30 * * * *", // Every 30 minutes
         enabled: true,
-        maxPerDay: 2,
       },
     ],
     debug: false,
@@ -85,7 +93,7 @@ const instance = await ai.initialize({
   },
   platforms: {
     telegram: {
-      enabled: true,
+      enabled: false,
       token: process.env.TELEGRAM_BOT_TOKEN!,
     },
     api: {
@@ -100,10 +108,10 @@ const instance = await ai.initialize({
       cookies: await loadTwitterCookies(),
       username: "duckunfiltered",
       debug: {
-        checkMentionsOnStartup: true,
+        checkMentionsOnStartup: false,
       },
-      checkInterval: "*/2 * * * *", // Check every 1 minute
-      maxTweetsPerCheck: 10,
+      checkInterval: "0 0 * * *", // Check every 1 minute
+      maxTweetsPerCheck: 1,
       rateLimit: {
         userMaxPerHour: 5,
         globalMaxPerHour: 30,
@@ -138,11 +146,3 @@ const instance = await ai.initialize({
     twitter: config.twitter,
   },
 });
-
-/* if (port === 8001) {
-  await new Promise((resolve) => setTimeout(resolve, 5000));
-
-  await instance.sendP2PMessage(
-    "Hey Ducky, lets code up some new ai tools for us to use in future prompts!"
-  );
-} */
