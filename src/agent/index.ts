@@ -89,7 +89,7 @@ const instance = await ai.initialize({
       },
       {
         type: "movers_alpha",
-        schedule: "0 */52 * * *", // Every 52 minutes
+        schedule: "25 * * * *", // Every 52 minutes
         enabled: true,
       },
     ],
