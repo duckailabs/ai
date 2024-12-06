@@ -409,7 +409,7 @@ export class ScheduledPostManager {
             timelineData
           );
 
-          tweetText += `My's Analysis:\n`;
+          tweetText += `My Analysis:\n`;
           if (analysis.selectedTokens.length > 0) {
             tweetText += `$${analysis.selectedTokens[0].symbol}: ${analysis.selectedTokens[0].analysis}\n\n`;
           }
