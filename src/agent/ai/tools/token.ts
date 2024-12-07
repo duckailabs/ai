@@ -1,4 +1,3 @@
-import { log } from "@/core/utils/logger";
 import { db, dbSchemas } from "@/db";
 import { and, eq, ilike, or } from "drizzle-orm";
 
@@ -18,7 +17,6 @@ const priorityChains = [
 
 export async function getToken(twitterHandle: string) {
   // First, try to find an exact match with coingeckoId
-  log.warn("Getting token for", twitterHandle);
   const coingeckoIdMatchQuery = await db
     .select()
     .from(dbSchemas.coins)

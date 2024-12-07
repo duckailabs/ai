@@ -113,10 +113,10 @@ const instance = await ai.initialize({
       cookies: await loadTwitterCookies(),
       username: "duckunfiltered",
       debug: {
-        checkMentionsOnStartup: true,
+        checkMentionsOnStartup: false,
       },
-      checkInterval: "0 0 * * *", // Check every 1 minute
-      maxTweetsPerCheck: 10,
+      checkInterval: "*/2 * * * *", // Check every 2 minutes
+      maxTweetsPerCheck: 30,
       rateLimit: {
         userMaxPerHour: 5,
         globalMaxPerHour: 30,
