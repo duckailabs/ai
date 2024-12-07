@@ -24,7 +24,12 @@ export class TwitterClient {
   }
 
   async sendTweet(text: string, options?: TweetOptions): Promise<Tweet> {
-    const response = await this.requestStrategy.sendTweet(text, options);
+    const regex = /^(["'])(.*)(["'])$/;
+    const tweetTextWithoutQuotes = text.replace(regex, "$2");
+    const response = await this.requestStrategy.sendTweet(
+      tweetTextWithoutQuotes,
+      options
+    );
     return response.data;
   }
 
