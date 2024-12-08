@@ -5,7 +5,7 @@ import type { TwitterClient } from "../platform/twitter/api/src/client";
 import { log } from "../utils/logger";
 
 export interface ScheduledPostConfig {
-  type: "image" | "market_update" | "movers_alpha";
+  type: "image" | "market_update" | "movers_alpha" | "market_cap_movers";
   schedule: string;
   enabled: boolean;
   maxPerDay?: number;
@@ -33,7 +33,8 @@ export class ScheduledPostManager {
     private configs: ScheduledPostConfig[],
     private twitterClient?: TwitterClient,
     private debug?: boolean,
-    private runOnStartup?: boolean
+    private runOnStartup?: boolean,
+    private lastCategory?: string
   ) {
     this.resetDailyCounts();
     log.info(
@@ -102,6 +103,9 @@ export class ScheduledPostManager {
           break;
         case "movers_alpha":
           await this.handleMovementPost(correlationId);
+          break;
+        case "market_cap_movers":
+          await this.handleMarketCapMoversPost(correlationId);
           break;
         default:
           throw new Error(`Unsupported post type: ${config.type}`);
@@ -466,6 +470,123 @@ export class ScheduledPostManager {
         );
       }
     } catch (error) {
+      await this.ai.eventService.createInteractionEvent("interaction.failed", {
+        input: "",
+        error: error instanceof Error ? error.message : "Unknown error",
+        timestamp: new Date().toISOString(),
+        messageId: "",
+        user: {
+          id: "",
+          metadata: { correlationId },
+        },
+      });
+      throw error;
+    }
+  }
+
+  private async handleMarketCapMoversPost(correlationId: string) {
+    try {
+      // Determine which category to post based on the last posted category
+      const useVirtuals =
+        this.lastCategory === "ai-meme-coins" || this.lastCategory === null;
+      const category = useVirtuals
+        ? "virtuals-protocol-ecosystem"
+        : "ai-meme-coins";
+
+      let tweetText = "🔄 Top Market Cap\n\n";
+
+      log.info(`Fetching data for category: ${category}`);
+      const response = await this.ai.fatduckManager.getTopMarketCapMovers(
+        category
+      );
+
+      const movements = response?.categories?.[0]?.movements;
+      if (!movements?.length) {
+        log.warn(`No movements found for category: ${category}`);
+        return;
+      }
+
+      // Add category header
+      tweetText += `${
+        category === "ai-meme-coins" ? "AI Meme" : "Virtuals Protocol"
+      }:\n`;
+
+      // Sort by market cap
+      const topMovers = movements
+        .filter(
+          (mover) =>
+            mover.metrics?.marketCap?.current !== undefined &&
+            mover.symbol !== '"　"'
+        )
+        .sort(
+          (a, b) => b.metrics.marketCap.current - a.metrics.marketCap.current
+        );
+
+      for (const mover of topMovers) {
+        const mcInMillions = mover.metrics.marketCap.current / 1000000;
+        const mcFormatted =
+          mcInMillions >= 1000
+            ? `${(mcInMillions / 1000).toFixed(2)}B`
+            : `${Math.round(mcInMillions)}M`;
+
+        tweetText += `$${mover.symbol} ${mcFormatted}`;
+        if (
+          mover.metadata?.twitterHandle &&
+          mover.metadata.twitterHandle !== "n/a"
+        ) {
+          tweetText += ` | @${mover.metadata.twitterHandle}`;
+        }
+        tweetText += "\n";
+      }
+
+      // Track content generation
+      await this.ai.eventService.createInteractionEvent("interaction.started", {
+        input: tweetText,
+        responseType: "market_cap_update",
+        platform: "twitter",
+        timestamp: new Date().toISOString(),
+        messageId: "",
+        replyTo: "",
+        hasMention: false,
+        user: {
+          id: "",
+          metadata: { correlationId },
+        },
+      });
+
+      // Post to Twitter
+      if (this.debug) {
+        log.info("Debug mode enabled, skipping Twitter post");
+        log.info("Tweet text:", tweetText);
+        return;
+      }
+
+      if (this.twitterClient) {
+        const tweet = await this.twitterClient.sendTweet(tweetText);
+
+        // Update the last posted category
+        this.lastCategory = category;
+
+        await this.ai.eventService.createInteractionEvent(
+          "interaction.completed",
+          {
+            input: tweetText,
+            response: tweet.id,
+            responseType: "market_cap_update",
+            platform: "twitter",
+            processingTime: 0,
+            timestamp: new Date().toISOString(),
+            messageId: "",
+            replyTo: "",
+            user: {
+              id: "",
+              metadata: { correlationId },
+            },
+          }
+        );
+      }
+    } catch (error) {
+      log.error("Error in handleMarketCapMoversPost:", error);
       await this.ai.eventService.createInteractionEvent("interaction.failed", {
         input: "",
         error: error instanceof Error ? error.message : "Unknown error",

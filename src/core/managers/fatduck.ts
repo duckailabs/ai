@@ -1,6 +1,43 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig } from "axios";
 import { log } from "../utils/logger";
 
+interface MarketCapMoversData {
+  categories: {
+    category: {
+      id: string;
+      name: string;
+      slug: string;
+    };
+    movements: {
+      id: string;
+      scanId: string;
+      categoryId: string;
+      symbol: string;
+      name: string;
+      metrics: {
+        marketCap: {
+          current: number;
+          change24h: number;
+        };
+        price: {
+          current: number;
+          change24h: number;
+        };
+      };
+      score: string;
+      metadata?: {
+        twitterHandle?: string;
+      };
+      timestamp: string;
+    }[];
+    metadata: {
+      movementCount: number;
+      averageScore: number;
+      lastUpdated: string;
+    };
+  }[];
+}
+
 interface CategoryMovementsData {
   categories: {
     category: {
@@ -101,6 +138,20 @@ export class FatduckManager {
       ApiResponse<MarketUpdateData>
     >("/api/marketUpdate", {
       params: { interval: interval || "24hr" },
+    });
+
+    if (!response.success) {
+      throw new Error(response.error.message);
+    }
+
+    return response.data;
+  }
+
+  async getTopMarketCapMovers(category: string): Promise<MarketCapMoversData> {
+    const { data: response } = await this.client.get<
+      ApiResponse<MarketCapMoversData>
+    >("/api/topMarketCapMovers", {
+      params: { category },
     });
 
     if (!response.success) {
