@@ -248,7 +248,8 @@ export class ai {
           options.scheduledPosts.posts,
           twitterClient,
           options.scheduledPosts.debug,
-          options.scheduledPosts.runOnStartup
+          options.scheduledPosts.runOnStartup,
+          "ai-meme-coins"
         );
         await instance.scheduledPostManager.start();
         log.info("Scheduled post manager initialized successfully!");

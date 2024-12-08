@@ -10,6 +10,22 @@ import {
   QuantumPersonalityMapper,
   type QuantumPersonalitySettings,
 } from "./quantum-personality";
+
+interface MarketCapTimelineData {
+  symbol: string;
+  handle: string;
+  marketCapChange: number;
+  priceChange: number;
+  tweets: {
+    text: string;
+    createdAt: string;
+  }[];
+}
+
+interface MarketCapAnalysisResult {
+  insights: string;
+}
+
 export interface TimelineTweet {
   id: string;
   text: string;
@@ -891,6 +907,88 @@ Guidelines: ${character.responseStyles.platforms.twitter?.styles.tweet_reply?.gu
             analysis: "Significant market activity detected 📊",
           },
         ],
+      };
+    }
+  }
+
+  async analyzeMarketCapMovers(
+    timelineData: MarketCapTimelineData[]
+  ): Promise<MarketCapAnalysisResult> {
+    try {
+      const character = await this.characterManager.getCharacter();
+      if (!character) throw new Error("Character not found");
+
+      // Get personality settings
+      const personalitySettings = this.quantumPersonalityMapper
+        ? await this.quantumPersonalityMapper.mapQuantumToPersonality()
+        : undefined;
+
+      const moodModifiers = personalitySettings?.styleModifiers.tone || [];
+
+      const completion = await this.openai.chat.completions.create({
+        model: this.config.llm.model,
+        messages: [
+          {
+            role: "system",
+            content: `You are ${character.name}. ${character.bio}
+  Personality: ${
+    personalitySettings?.personalityTraits.join(", ") ||
+    character.personalityTraits.join(", ")
+  }
+  Mood: ${moodModifiers.join(", ")}
+  
+  Guidelines: ${character.responseStyles.platforms.twitter?.styles.tweet_reply?.guidelines.join(
+    ", "
+  )}
+  
+  Analyze these market cap movements and social activity:
+  ${JSON.stringify(timelineData, null, 2)}
+  
+  Provide a brief, insightful analysis:
+  1. Focus on strongest market cap gainers
+  2. Identify key trends or catalysts from tweets
+  3. Note any correlation between social activity and market cap changes
+  4. Keep total response under 280 characters
+  5. Use cashtags for tokens ($)
+  6. Use @ for Twitter handles
+  7. No quotation marks in the response
+  
+  Return a JSON object with format:
+  {
+    "insights": "string"
+  }`,
+          },
+        ],
+        temperature:
+          personalitySettings?.temperature ||
+          this.config.llm.temperature ||
+          0.7,
+        response_format: { type: "json_object" },
+      });
+
+      const content = completion.choices[0].message?.content;
+      if (!content) {
+        throw new Error("Empty response from LLM");
+      }
+
+      try {
+        const response = JSON.parse(content);
+        if (!response.insights) {
+          throw new Error("Invalid response structure");
+        }
+        return response as MarketCapAnalysisResult;
+      } catch (parseError) {
+        log.error("Failed to parse LLM response:", content);
+        // Return a safe fallback response
+        return {
+          insights: `Notable market cap movement for $${timelineData[0].symbol} with strong community engagement.`,
+        };
+      }
+    } catch (error) {
+      console.error("Error analyzing market cap movements:", error);
+      // Return a safe fallback if anything fails
+      return {
+        insights: `Significant market activity detected for multiple tokens.`,
       };
     }
   }
