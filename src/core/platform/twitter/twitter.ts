@@ -384,8 +384,6 @@ export class TwitterManager {
 
       let newLastCheckedId = this.lastCheckedId;
       for (const tweet of sortedTweets) {
-        // Skip if we've already processed this tweet
-        log.info(`Checking tweet ${tweet.id}`);
         if (this.lastCheckedId && tweet.id <= this.lastCheckedId) {
           continue;
         }
