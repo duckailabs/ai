@@ -71,7 +71,6 @@ export class PreprocessingManager {
           }
         );
         timelines.push(...userTimeline);
-        log.info(`Retrieved ${userTimeline.length} tweets for @${username}`);
       } catch (error) {
         log.warn(`Failed to fetch timeline for @${username}:`, error);
       }
