@@ -245,7 +245,6 @@ export class TwitterManager {
       }
       // Check if we should respond
       const { shouldRespond, reason } = await this.shouldRespond(tweet);
-      log.info(`Should respond: ${shouldRespond}, reason: ${reason}`);
 
       if (!shouldRespond) {
         await this.recordMention(tweet, "skipped", reason);
@@ -296,7 +295,6 @@ export class TwitterManager {
           "You are responding to a tweet. Consider the timeline context provided and maintain the character's Twitter persona. Ensure responses are concise and engaging. Do not include quotes around your response, just respond directly.",
         user: `Reply to the tweet: ${tweet.text}\n\nReferenced tweet (if any): ${referencedTweet?.text}`,
       };
-      log.info(`Input:`, input);
       // Use ai.interact() instead of direct LLM call
       const response = await this.ai.interact(input, options);
       await this.ai.eventService.createInteractionEvent(
@@ -387,7 +385,6 @@ export class TwitterManager {
         if (this.lastCheckedId && tweet.id <= this.lastCheckedId) {
           continue;
         }
-        log.info(`Processing tweet ${tweet.id}`);
         await this.handleMention(tweet);
 
         // Update the new last checked ID to be the highest ID we've seen

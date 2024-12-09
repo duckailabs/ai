@@ -21,7 +21,6 @@ import type {
   InteractionOptions,
   InteractionResult,
 } from "../types";
-import { log } from "../utils/logger";
 import { EventService } from "./Event";
 
 interface PromptContext {
@@ -62,7 +61,6 @@ export class InteractionService {
   ): Promise<InteractionResult> {
     return this.db.transaction(async (tx) => {
       try {
-        log.info("Handling interaction", this.twitterClient);
         // Initialize context
         const context = await this.initializeContext(input, options);
 
