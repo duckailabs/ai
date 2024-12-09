@@ -94,12 +94,12 @@ const instance = await ai.initialize({
       },
       {
         type: "market_cap_movers",
-        schedule: "10 */4 * * *", // Every 4 hours and 10 minutes
+        schedule: "20 */4 * * *", // Every 4 hours and 10 minutes
         enabled: true,
       },
     ],
-    debug: true,
-    runOnStartup: true,
+    debug: false,
+    runOnStartup: false,
   },
   platforms: {
     telegram: {
