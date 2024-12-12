@@ -8,6 +8,18 @@ import { and, eq, gte } from "drizzle-orm";
 import cron from "node-cron";
 import type { InteractionOptions } from "../../types";
 
+export interface TimelineAnalysisOptions {
+  excludeRetweets: boolean;
+  limit: number;
+}
+
+export interface TimelineTweet {
+  id: string;
+  text: string;
+  authorUsername: string;
+  createdAt: string;
+}
+
 export interface TwitterConfig {
   enabled: boolean;
   cookies: any[];
@@ -405,6 +417,40 @@ export class TwitterManager {
           timestamp: new Date().toISOString(),
         },
       });
+    }
+  }
+
+  public async analyzeTimeline(
+    username: string,
+    options: {
+      excludeRetweets: boolean;
+      limit: number;
+    }
+  ): Promise<
+    {
+      id: string;
+      text: string;
+      authorUsername: string;
+      createdAt: string;
+    }[]
+  > {
+    try {
+      const timeline = await this.ai.twitterManager
+        .getClient()
+        .getUserTimeline(username, {
+          excludeRetweets: options.excludeRetweets,
+          limit: options.limit,
+        });
+
+      return timeline.map((tweet: Tweet) => ({
+        id: tweet.id,
+        text: tweet.text,
+        authorUsername: tweet.authorUsername || "",
+        createdAt: tweet.createdAt?.toISOString() || "",
+      }));
+    } catch (error) {
+      log.error("Error analyzing timeline:", error);
+      return [];
     }
   }
 }

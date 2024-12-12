@@ -1,5 +1,7 @@
+// USER AGENT
 import { ai } from "@/core/ai";
 import { log } from "@/core/utils/logger";
+import { Turnkey } from "@turnkey/sdk-server";
 import dotenv from "dotenv";
 import fs from "fs/promises";
 import path, { dirname } from "path";
@@ -12,7 +14,7 @@ const __dirname = dirname(__filename);
 dotenv.config();
 
 const args = process.argv.slice(2);
-const port = args[0] ? parseInt(args[0]) : 8001;
+const user = args[0] === "soulie" ? "soulie" : "ducky";
 
 async function loadTwitterCookies() {
   try {
@@ -38,13 +40,16 @@ async function loadTwitterCookies() {
   }
 }
 
-log.info(`Initializing Agent Ducky 00${port === 8001 ? 7 : 8}...`);
+const turnkeyClient = new Turnkey({
+  apiBaseUrl: process.env.TURNKEY_API_URL!,
+  apiPrivateKey: process.env.TURNKEY_PRIVATE_KEY!,
+  apiPublicKey: process.env.TURNKEY_PUBLIC_KEY!,
+  defaultOrganizationId: process.env.TURNKEY_ORG_ID!,
+});
+
+log.info(`Initializing Agent ${user}...`);
 const instance = await ai.initialize({
   databaseUrl: process.env.DATABASE_URL!,
-  fatduck: {
-    baseUrl: process.env.FATDUCK_API_URL!,
-    apiKey: process.env.FATDUCK_API_KEY!,
-  },
   llmConfig: {
     apiKey: process.env.TOGETHER_API_KEY!,
     baseURL: process.env.TOGETHER_API_URL!,
@@ -65,7 +70,7 @@ const instance = await ai.initialize({
   refreshCharacterOnRestart: true,
   toolsDir: path.join(__dirname, "./ai/tools"),
   coingecko: {
-    enabled: true,
+    enabled: false,
     apiKey: process.env.COINGECKO_API_KEY!,
     updateInterval: "0 0 * * *",
     initialScan: {
@@ -75,35 +80,12 @@ const instance = await ai.initialize({
     },
   },
   scheduledPosts: {
-    enabled: true,
-    posts: [
-      {
-        type: "image",
-        schedule: "0 */2 * * *", // Every 4 hours
-        enabled: true,
-      },
-      {
-        type: "market_update",
-        schedule: "30 * * * *", // Every 30 minutes
-        enabled: true,
-      },
-      {
-        type: "movers_alpha",
-        schedule: "10 */1 * * *", // Every 1 hour and 10 minutes
-        enabled: true,
-      },
-      {
-        type: "market_cap_movers",
-        schedule: "20 */4 * * *", // Every 4 hours and 10 minutes
-        enabled: true,
-      },
-    ],
+    enabled: false,
     debug: false,
-    runOnStartup: false,
   },
   platforms: {
     telegram: {
-      enabled: true,
+      enabled: false,
       token: process.env.TELEGRAM_BOT_TOKEN!,
     },
     api: {
@@ -128,11 +110,19 @@ const instance = await ai.initialize({
       },
     },
     p2p: {
-      enabled: false,
-      port, // You can change this port or read from env
-      privateKey: process.env.PRIVATE_KEY!, // Add this to your .env file
+      address:
+        user === "ducky"
+          ? process.env.ADDRESS_DUCKY!
+          : process.env.ADDRESS_SOULIE!,
+      turnkeyClient: turnkeyClient,
+      enabled: true,
+      port: user === "ducky" ? 8001 : 8002, // You can change this port or read from env
+      privateKey:
+        user === "ducky"
+          ? process.env.PRIVATE_KEY!
+          : process.env.PRIVATE_KEY_2!, // Add this to your .env file
       initialPeers:
-        port === 8001
+        user === "ducky"
           ? [
               "/ip4/127.0.0.1/tcp/8002/p2p/12D3KooWQAvECRBqh8iArmzvBDksSWUVbHzPD5sy4hQ1eVZRecYM",
             ]
@@ -156,3 +146,42 @@ const instance = await ai.initialize({
     twitter: config.twitter,
   },
 });
+
+await instance.schedulePost({
+  type: "marketUpdate",
+  schedule: "30 * * * *",
+  enabled: false,
+  prompt: duckyCharacter.prompts?.marketUpdate?.system as string,
+  tools: ["market-analyzer"],
+  test: false,
+});
+
+await instance.schedulePost({
+  type: "moversAlpha",
+  schedule: "10 */1 * * *",
+  enabled: false,
+  prompt: duckyCharacter.prompts?.tokenAnalysis?.system as string,
+  tools: ["price-movement-analyzer", "timeline-analyzer"],
+  test: false,
+});
+
+await instance.schedulePost({
+  type: "marketCapAnalysis",
+  schedule: "20 */4 * * *",
+  enabled: false,
+  prompt: duckyCharacter.prompts?.marketCapAnalysis?.system as string,
+  tools: ["market-cap-analyzer"],
+  test: false,
+});
+
+await instance.schedulePost({
+  type: "image",
+  schedule: "0 */2 * * *",
+  enabled: false,
+  prompt: duckyCharacter.prompts?.imageGeneration?.system as string,
+  tools: ["timeline-analyzer", "market-analyzer"],
+  test: false,
+});
+
+// Example usage:
+// To send a question that will reward with tokens:

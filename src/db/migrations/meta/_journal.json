@@ -176,6 +176,20 @@
       "when": 1733407150184,
       "tag": "0024_watery_mandrill",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1733836569220,
+      "tag": "0025_useful_inhumans",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1734037105743,
+      "tag": "0026_big_stellaris",
+      "breakpoints": true
     }
   ]
 }

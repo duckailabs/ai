@@ -6,7 +6,6 @@ import type {
   ResponseType,
   StyleSettings,
 } from "@/types";
-import type { ToolResult } from "@/types/tools";
 import crypto from "crypto";
 import { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import type { CharacterManager } from "../managers/character";
@@ -85,7 +84,7 @@ export class InteractionService {
         }
 
         // Execute tools first if any are specified
-        let toolResults: Record<string, ToolResult> = {};
+        let toolResults: Record<string, any> = {};
         /* if (options.tools?.length) {
           toolResults = await this.toolManager.executeTools(
             options.tools,
@@ -133,7 +132,7 @@ export class InteractionService {
   private async buildFinalPrompt(
     context: PromptContext,
     options: InteractionOptions,
-    toolResults: Record<string, ToolResult>
+    toolResults: Record<string, any>
   ): Promise<string> {
     let finalSystem = context.system;
 

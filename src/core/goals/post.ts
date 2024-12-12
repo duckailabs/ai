@@ -2,10 +2,9 @@ import { dbSchemas } from "@/db";
 import { goals, goalTracker } from "@/db/schema/goal";
 import { eq, sql } from "drizzle-orm";
 import { type PostgresJsDatabase } from "drizzle-orm/postgres-js";
-import type { FatduckManager } from "../managers/fatduck";
 import type { LLMManager } from "../managers/llm";
 import { log } from "../utils/logger";
-import { ContextResolver, type ContextType } from "./context";
+import { type ContextType } from "./context";
 
 /**
  * Post Goal Manager
@@ -13,12 +12,8 @@ import { ContextResolver, type ContextType } from "./context";
 export class PostGoal {
   constructor(
     private db: PostgresJsDatabase<typeof dbSchemas>,
-    private llmManager: LLMManager,
-    private contextResolver: ContextResolver,
-    private fatduckManager: FatduckManager
-  ) {
-    this.contextResolver = new ContextResolver(fatduckManager);
-  }
+    private llmManager: LLMManager
+  ) {}
 
   async selectPostGoal(): Promise<typeof goals.$inferSelect | null> {
     const prompt = await this.buildPrompt();
@@ -80,10 +75,10 @@ export class PostGoal {
     });
 
     // Fetch all needed context at once
-    const contexts = await this.contextResolver.getContext([
+    /* const contexts = await this.contextResolver.getContext([
       ...allContextTypes,
     ]);
-
+ */
     const prompt = `You are selecting the next post to create based on configured frequencies and current UTC time.
       Current UTC Time: ${currentUTCTime.toISOString()}
       
@@ -95,7 +90,7 @@ export class PostGoal {
             : "Never run";
 
           // Get relevant context for this goal
-          const goalContexts =
+          /*  const goalContexts =
             g.goals.contextTypes
               ?.map((type) => {
                 const contextData = contexts[type as ContextType];
@@ -105,7 +100,7 @@ export class PostGoal {
                   2
                 )}`;
               })
-              .join("\n") || "No context available";
+              .join("\n") || "No context available"; */
 
           return `
             Name: ${g.goals.name}
@@ -119,7 +114,6 @@ export class PostGoal {
             ${timeSinceLastRun}
             
             Context:
-            ${goalContexts}
           `;
         })
         .join("\n")}

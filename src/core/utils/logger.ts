@@ -57,4 +57,11 @@ export const log = {
       data ? chalk.gray(JSON.stringify(data)) : ""
     );
   },
+  userLog: (message: string, data?: any) => {
+    console.log(
+      chalk.magenta("👤"),
+      chalk.magenta(message),
+      data ? chalk.gray(JSON.stringify(data)) : ""
+    );
+  },
 };

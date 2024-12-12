@@ -6,12 +6,12 @@ import { yamux } from "@chainsafe/libp2p-yamux";
 import { identify, identifyPush } from "@libp2p/identify";
 import { tcp } from "@libp2p/tcp";
 import { multiaddr } from "@multiformats/multiaddr";
+import { Turnkey } from "@turnkey/sdk-server";
 import crypto from "crypto";
 import { createLibp2p } from "libp2p";
-import { createWalletClient, custom, type WalletClient } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
 import type { InteractionOptions } from "../types";
 import type { CharacterManager } from "./character";
+import { DuckAiTokenAirdrop } from "./wallet";
 
 interface AgentMetadata {
   creators?: string;
@@ -20,48 +20,215 @@ interface AgentMetadata {
 
 interface P2PAgentMessage {
   messageId: string;
-  fromAgentId: string; // Address
-  toAgentId?: string; // Optional - if not set, broadcast
+  fromAgentId: string;
+  toAgentId?: string;
   content: string;
   timestamp: number;
   signature: string;
   conversationId?: string;
   replyTo?: string;
+  isQuestion?: boolean; // New field to identify questions
+  requiresReward?: boolean; // New field to indicate if message should be rewarded
+  rewardAmount?: number; // Optional reward amount in tokens
+}
+
+interface P2PNetworkConfig {
+  turnkeyClient: Turnkey;
+  tokenMintAddress: string;
+  rewardAmount: number;
+  address: string;
 }
 
 export class P2PNetwork {
   private node: any;
-  private wallet: WalletClient;
+  //private wallet: WalletClient;
   private account: any;
   private knownPeers: Set<string> = new Set();
   private agentMetadata: AgentMetadata;
   private processedMessages: Set<string> = new Set();
   private characterManager: CharacterManager;
   private defaults: InteractionDefaults | undefined;
+  private tokenAirdrop: DuckAiTokenAirdrop;
+  private pendingQuestions: Map<string, P2PAgentMessage> = new Map();
+  private config: P2PNetworkConfig;
+  private address: string;
+
   constructor(
     privateKey: string,
     private agentName: string,
     private version: string,
     private metadata: AgentMetadata,
+
     private aiInteract: (
       input: { system: string; user: string },
       options: InteractionOptions
     ) => Promise<any>,
     characterManager: CharacterManager,
-    defaults: InteractionDefaults | undefined
+    defaults: InteractionDefaults | undefined,
+    config: P2PNetworkConfig
   ) {
     this.characterManager = characterManager;
     this.defaults = defaults;
-    this.account = privateKeyToAccount(`0x${privateKey.replace("0x", "")}`);
+    this.config = config;
+    /* this.account = privateKeyToAccount(`0x${privateKey.replace("0x", "")}`);
     this.wallet = createWalletClient({
       account: this.account,
       transport: custom({
         request: async (args) => {
           console.log("Request:", args);
         },
-      }), // Use custom empty transport since we only need signing
-    });
+      }),
+    }); */
+    this.address = config.address;
     this.agentMetadata = metadata;
+
+    // Initialize token airdrop
+    this.tokenAirdrop = new DuckAiTokenAirdrop(
+      config.turnkeyClient,
+      config.address,
+      config.tokenMintAddress
+    );
+  }
+
+  async sendQuestion(content: string): Promise<string> {
+    const messageId = crypto.randomUUID();
+
+    const messageData = {
+      messageId,
+      fromAgentId: this.address,
+      content,
+      timestamp: Date.now(),
+      isQuestion: true,
+      requiresReward: true,
+      rewardAmount: this.config.rewardAmount,
+    };
+
+    /* const signature = await this.wallet.signMessage({
+      message: JSON.stringify(messageData),
+      account: this.account,
+    }); */
+
+    const message: P2PAgentMessage = {
+      ...messageData,
+      signature: "0x",
+    };
+
+    // Store the question for later verification
+    this.pendingQuestions.set(messageId, message);
+
+    // Publish to the agent-messages topic
+    await this.node.services.pubsub.publish(
+      "agent-messages",
+      new TextEncoder().encode(JSON.stringify(message))
+    );
+
+    log.sent(`[SENDING QUESTION] ${content}\n`);
+    return messageId;
+  }
+
+  private async handleAgentMessage(message: P2PAgentMessage) {
+    try {
+      if (this.processedMessages.has(message.messageId)) {
+        return;
+      }
+
+      /* if (message.toAgentId && message.toAgentId !== this.account.address) {
+        return;
+      } */
+
+      // Verify the message signature
+      /*  const messageHash = await this.wallet.signMessage({
+        message: JSON.stringify({
+          messageId: message.messageId,
+          fromAgentId: message.fromAgentId,
+          toAgentId: message.toAgentId,
+          content: message.content,
+          timestamp: message.timestamp,
+          conversationId: message.conversationId,
+          replyTo: message.replyTo,
+          isQuestion: message.isQuestion,
+          requiresReward: message.requiresReward,
+          rewardAmount: message.rewardAmount,
+        }),
+        account: this.account,
+      }); */
+
+      /* if (message.signature !== messageHash) {
+        console.warn("Invalid message signature");
+        return;
+      }
+ */
+      this.processedMessages.add(message.messageId);
+
+      if (message.isQuestion) {
+        // Handle incoming question
+        log.receiving(`[RECEIVING QUESTION] ${message.content}\n`);
+
+        const character = await this.characterManager.getCharacter();
+        if (!character) {
+          log.error("No character found");
+          return;
+        }
+
+        const response = await this.aiInteract(
+          {
+            system: `Question from ${message.fromAgentId.substring(0, 5)}`,
+            user: message.content,
+          },
+          {
+            mode: "enhanced",
+            platform: "telegram",
+            responseType: "telegram_chat",
+            userId: message.fromAgentId,
+            characterId: character.id,
+            chatId: message.conversationId || message.fromAgentId,
+            messageId: message.messageId,
+            replyTo: message.replyTo,
+          }
+        );
+
+        if (response?.content) {
+          await this.sendMessage(
+            response.content,
+            message.fromAgentId,
+            message.conversationId,
+            message.messageId,
+            false, // Not a question
+            true // This is an answer
+          );
+          log.sent(`[SENDING ANSWER]\n`);
+        }
+      } else {
+        // Handle answer to our question
+        const originalQuestion = this.pendingQuestions.get(message.replyTo!);
+        if (originalQuestion && originalQuestion.requiresReward) {
+          log.receiving(`[RECEIVED ANSWER] ${message.content}\n`);
+
+          // Send reward
+          try {
+            const signature = await this.tokenAirdrop.airdropTokens(
+              message.fromAgentId
+            );
+            log.sent(
+              `Processed payment to ${message.fromAgentId}.\n Tx: https://explorer.solana.com/tx/${signature}?cluster=devnet`
+            );
+            await this.sendMessage(
+              `Receipt https://explorer.solana.com/tx/${signature}?cluster=devnet`,
+              message.fromAgentId,
+              message.conversationId,
+              message.messageId,
+              false,
+              true
+            );
+            this.pendingQuestions.delete(message.replyTo!);
+          } catch (error) {
+            log.error(`Failed to send reward tokens: ${error}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error processing agent message:", error);
+    }
   }
 
   async start(port: number, initialPeers: string[] = []) {
@@ -89,7 +256,7 @@ export class P2PNetwork {
       await this.setupPubSub();
 
       log.info("P2P Network started with ID:", this.node.peerId.toString());
-      log.info("Agent address:", this.account.address);
+      log.info("Agent address:", this.address);
 
       // Connect to initial peers
       if (initialPeers.length > 0) {
@@ -130,115 +297,38 @@ export class P2PNetwork {
     });
   }
 
-  private async handleAgentMessage(message: P2PAgentMessage) {
-    try {
-      // Skip if we've already processed this message
-      if (this.processedMessages.has(message.messageId)) {
-        return;
-      }
-
-      // Skip if message is not for us and not a broadcast
-      if (message.toAgentId && message.toAgentId !== this.account.address) {
-        return;
-      }
-
-      // Verify the message
-      const messageHash = await this.wallet.signMessage({
-        message: JSON.stringify({
-          messageId: message.messageId,
-          fromAgentId: message.fromAgentId,
-          toAgentId: message.toAgentId,
-          content: message.content,
-          timestamp: message.timestamp,
-          conversationId: message.conversationId,
-          replyTo: message.replyTo,
-        }),
-        account: this.account,
-      });
-
-      if (message.signature !== messageHash) {
-        console.warn("Invalid message signature");
-        return;
-      }
-
-      // Mark as processed
-      this.processedMessages.add(message.messageId);
-      log.receiving(
-        ` [RECEIVING TRANSMISSION]
-        \n ${message.content}\n`
-      );
-
-      // Process with AI
-      const character = await this.characterManager.getCharacter();
-
-      const systemPrompt = `Private chat with ${message.fromAgentId.substring(
-        0,
-        5
-      )}. ${message.content}`;
-
-      const defaultOptions = {
-        mode: "enhanced" as const,
-        platform: "telegram" as const,
-        responseType: "telegram_chat",
-        characterId: character.id,
-      };
-      const response = await this.aiInteract(
-        {
-          system: systemPrompt,
-          user: message.content,
-        },
-        {
-          ...defaultOptions,
-          userId: message.fromAgentId,
-          characterId: character.id,
-          chatId: message.conversationId || message.fromAgentId,
-          messageId: message.messageId,
-          replyTo: message.replyTo,
-        }
-      );
-
-      // If we got a response, send it back
-      if (response?.content) {
-        await this.sendMessage(
-          response.content,
-          message.fromAgentId,
-          message.conversationId,
-          message.messageId
-        );
-        log.sent(`[RESPONDING]`);
-      }
-    } catch (error) {
-      console.error("Error processing agent message:", error);
-    }
-  }
-
   public async sendMessage(
     content: string,
     toAgentId?: string,
     conversationId?: string,
-    replyTo?: string
+    replyTo?: string,
+    isQuestion: boolean = false,
+    isAnswer: boolean = false
   ) {
     const messageId = crypto.randomUUID();
 
     const messageData = {
       messageId,
-      fromAgentId: this.account.address,
+      fromAgentId: this.address,
       toAgentId,
       content,
       timestamp: Date.now(),
       conversationId,
       replyTo,
+      isQuestion,
+      requiresReward: false,
+      rewardAmount: isQuestion ? this.config.rewardAmount : undefined,
     };
 
     // Sign the message
-    const signature = await this.wallet.signMessage({
+    /*  const signature = await this.wallet.signMessage({
       message: JSON.stringify(messageData),
       account: this.account,
-    });
+    }); */
 
     const message: P2PAgentMessage = {
       ...messageData,
-      signature,
+      signature: "0x",
     };
 
     // Publish to the agent-messages topic
@@ -252,7 +342,7 @@ export class P2PNetwork {
 
   async announcePresence() {
     const message = {
-      agentId: this.account.address,
+      agentId: this.address,
       name: this.agentName,
       version: this.version,
       timestamp: Date.now(),
@@ -260,12 +350,12 @@ export class P2PNetwork {
       metadata: this.agentMetadata,
     };
 
-    const signature = await this.wallet.signMessage({
+    /* const signature = await this.wallet.signMessage({
       message: JSON.stringify(message),
       account: this.account,
     });
-
-    const announcement = { ...message, signature };
+ */
+    const announcement = { ...message, signature: "0x" };
 
     await this.node.services.pubsub.publish(
       "agent-announcements",
@@ -276,7 +366,7 @@ export class P2PNetwork {
 
   private async verifyAndProcessAnnouncement(announcement: any) {
     try {
-      if (announcement.agentId === this.account.address) {
+      if (announcement.agentId === this.address) {
         return;
       }
 

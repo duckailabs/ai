@@ -2,6 +2,7 @@ import { dbSchemas } from "@/db";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import type { CharacterManager } from "../managers/character";
 import type { InteractionEventPayload, InteractionEventType } from "../types";
+import { log } from "../utils/logger";
 
 export class EventService {
   constructor(
@@ -40,6 +41,11 @@ export class EventService {
     payload: InteractionEventPayload[T]
   ) {
     const character = await this.characterManager.getCharacter();
+    if (!character) {
+      log.error("No character found");
+      return;
+    }
+
     try {
       const result = await this.db
         .insert(dbSchemas.events)

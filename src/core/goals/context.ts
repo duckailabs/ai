@@ -1,4 +1,4 @@
-import type { FatduckManager } from "../managers/fatduck";
+import type { FatduckManager } from "../../agents/agent/ai/tools/fatduck";
 import { log } from "../utils/logger";
 
 export type ContextType = "MARKET_NEWS" | "PRICE_DATA" | "VOLUME_DATA";

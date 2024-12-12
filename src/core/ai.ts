@@ -1,9 +1,11 @@
 import { CharacterManager } from "@/core/managers/character";
-import { LLMManager, type LLMConfig } from "@/core/managers/llm";
+import {
+  LLMManager,
+  type LLMConfig,
+  type TimelineTweet,
+} from "@/core/managers/llm";
 import { MemoryManager } from "@/core/managers/memory";
 import { StyleManager } from "@/core/managers/style";
-import { CharacterBuilder } from "@/create-character/builder";
-import { type ChatMessage, type Tweet } from "@/create-character/types";
 import { dbSchemas } from "@/db";
 import type { Character } from "@/db/schema/schema";
 import type { InteractionDefaults } from "@/types";
@@ -14,14 +16,13 @@ import {
   type ResponseStyles,
   type StyleSettings,
 } from "@/types";
+import type { Turnkey } from "@turnkey/sdk-server";
 import { eq } from "drizzle-orm";
 import { drizzle, PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { ContextResolver } from "./goals/context";
 import { PostGoal } from "./goals/post";
 import { CoinGeckoManager } from "./managers/coingecko";
 import { ConversationManager } from "./managers/conversation";
-import { FatduckManager, type FatduckConfig } from "./managers/fatduck";
 import { P2PNetwork } from "./managers/libp2p";
 import { QuantumStateManager } from "./managers/quantum";
 import { QuantumPersonalityMapper } from "./managers/quantum-personality";
@@ -31,9 +32,14 @@ import {
 } from "./managers/scheduler";
 import { ToolManager } from "./managers/tools";
 import { APIServer, type ServerConfig } from "./platform/api/server";
+import EchoChambersClient from "./platform/echochambers";
 import { TelegramClient } from "./platform/telegram/telegram";
 import type { TwitterClient } from "./platform/twitter/api/src/client";
-import { TwitterManager, type TwitterConfig } from "./platform/twitter/twitter";
+import {
+  TwitterManager,
+  type TimelineAnalysisOptions,
+  type TwitterConfig,
+} from "./platform/twitter/twitter";
 import { EventService } from "./services/Event";
 import { InteractionService } from "./services/Interaction";
 import {
@@ -50,12 +56,9 @@ export interface AIOptions {
   toolsDir?: string | "./ai/tools/";
   character: CreateCharacterInput;
   refreshCharacterOnRestart?: boolean;
-  fatduck: FatduckConfig;
   scheduledPosts?: {
     enabled: boolean;
-    posts: ScheduledPostConfig[];
     debug?: boolean;
-    runOnStartup?: boolean;
   };
   platformDefaults?: {
     telegram?: InteractionDefaults;
@@ -87,6 +90,11 @@ export interface AIOptions {
       token: string;
     };
     twitter?: TwitterConfig;
+    echoChambers?: {
+      enabled: boolean;
+      apiKey: string;
+      baseUrl: string;
+    };
     api?: {
       enabled: boolean;
       port: number;
@@ -101,6 +109,8 @@ export interface AIOptions {
       privateKey: string;
       initialPeers: string[];
       port: number;
+      turnkeyClient: Turnkey;
+      address: string;
     };
   };
 }
@@ -110,7 +120,6 @@ export class ai {
   private memoryManager: MemoryManager;
   private styleManager: StyleManager;
   public llmManager: LLMManager;
-  private characterBuilder: CharacterBuilder;
   public db: PostgresJsDatabase<typeof dbSchemas>;
   private interactionService!: InteractionService;
   public eventService: EventService;
@@ -128,12 +137,11 @@ export class ai {
   private quantumStateManager?: QuantumStateManager;
   private stateUpdateService?: StateUpdateService;
   private twitterManager?: TwitterManager;
+  private echoChambersClient?: EchoChambersClient;
   private coinGeckoManager?: CoinGeckoManager;
   private scheduledPostManager?: ScheduledPostManager;
   private isShuttingDown: boolean = false;
-  public fatduckManager: FatduckManager;
   public goalManager: PostGoal;
-  private contextResolver: ContextResolver;
   constructor(options: AIOptions) {
     this.queryClient = postgres(options.databaseUrl, {
       max: 20,
@@ -143,18 +151,9 @@ export class ai {
     this.db = drizzle(this.queryClient, { schema: dbSchemas });
     this.characterManager = new CharacterManager(this.db);
 
-    // Initialize basic managers without quantum features
-    this.fatduckManager = new FatduckManager(options.fatduck);
-    this.contextResolver = new ContextResolver(this.fatduckManager);
     this.llmManager = new LLMManager(options.llmConfig, this.characterManager);
-    this.goalManager = new PostGoal(
-      this.db,
-      this.llmManager,
-      this.contextResolver,
-      this.fatduckManager
-    );
+    this.goalManager = new PostGoal(this.db, this.llmManager);
     this.styleManager = new StyleManager(this.characterManager);
-    this.characterBuilder = new CharacterBuilder(this.llmManager);
     this.memoryManager = new MemoryManager(this.db, this.llmManager);
     this.eventService = new EventService(this.db, this.characterManager);
     this.toolManager = new ToolManager({ toolsDir: options.toolsDir });
@@ -241,17 +240,25 @@ export class ai {
       const twitterClient = instance.twitterManager.getClient();
       log.info("Got Twitter client from manager:", !!twitterClient);
 
+      if (options.platforms?.echoChambers?.enabled) {
+        log.info("Initializing Echo Chambers client...");
+        instance.echoChambersClient = new EchoChambersClient(
+          options.platforms.echoChambers
+        );
+        log.info("Echo Chambers client initialized successfully!");
+      }
+
       if (options.scheduledPosts?.enabled) {
         log.info("Initializing scheduled post manager...");
         instance.scheduledPostManager = new ScheduledPostManager(
-          instance,
-          options.scheduledPosts.posts,
+          instance.eventService,
+          instance.toolManager,
+          instance.characterManager,
+          instance.llmManager,
+          instance.styleManager,
           twitterClient,
-          options.scheduledPosts.debug,
-          options.scheduledPosts.runOnStartup,
-          "ai-meme-coins"
+          instance.echoChambersClient
         );
-        await instance.scheduledPostManager.start();
         log.info("Scheduled post manager initialized successfully!");
       }
       // Create preprocessing manager with the initialized client
@@ -341,6 +348,19 @@ export class ai {
           : [],
       };
 
+      const p2pConfig = {
+        turnkeyClient: options.platforms.p2p.turnkeyClient,
+        tokenMintAddress: stripped_metadata.tokenAddress,
+        address: options.platforms.p2p.address,
+        rewardAmount: 6900, // Or get from options
+        port: Number(options.platforms.p2p.port),
+        initialPeers: Array.isArray(options.platforms.p2p.initialPeers)
+          ? options.platforms.p2p.initialPeers.filter(
+              (p: string) => typeof p === "string"
+            )
+          : [],
+      };
+
       try {
         instance.p2pNetwork = new P2PNetwork(
           options.platforms.p2p.privateKey,
@@ -349,7 +369,8 @@ export class ai {
           stripped_metadata,
           instance.interact.bind(instance),
           instance.characterManager,
-          options.platformDefaults?.telegram
+          options.platformDefaults?.telegram,
+          p2pConfig
         );
 
         await instance.p2pNetwork.start(
@@ -499,12 +520,10 @@ export class ai {
   }
 
   async getCharacter(id: string) {
-    return this.characterManager.getCharacter(id);
+    return await this.characterManager.getCharacter(id);
   }
 
-  async createCharacter(
-    input: CreateCharacterInput & { responseStyles?: ResponseStyles }
-  ) {
+  async createCharacter(input: CreateCharacterInput) {
     const defaultResponseStyles: ResponseStyles = {
       default: {
         tone: [],
@@ -568,6 +587,7 @@ export class ai {
               quantumPersonality: characterConfig.quantumPersonality,
               updatedAt: new Date(),
               identity: characterConfig.identity,
+              prompts: characterConfig.prompts,
             }
           );
         } else {
@@ -594,33 +614,6 @@ export class ai {
     }
   }
 
-  async createCharacterFromData(input: {
-    data: ChatMessage[] | Tweet[];
-    type: "chat" | "tweet";
-    options?: {
-      minConfidence?: number;
-      mergingStrategy?: "weighted" | "latest" | "highest_confidence";
-    };
-  }) {
-    try {
-      const profile = await this.characterBuilder.analyzeData(input);
-      return this.characterManager.createCharacter({
-        ...profile,
-        responseStyles: {
-          default: {
-            tone: [],
-            personality: [],
-            guidelines: [],
-          },
-          platforms: {},
-        },
-      });
-    } catch (error) {
-      console.error("Error in character creation:", error);
-      throw error;
-    }
-  }
-
   private createTelegramClient(token: string) {
     return new TelegramClient(token, this, this.platformDefaults?.telegram);
   }
@@ -643,5 +636,58 @@ export class ai {
     const messageId = await this.p2pNetwork.sendMessage(content, toAgentId);
     log.sent(`[SENDING MESSAGE] ${content}\n`);
     return messageId;
+  }
+
+  public async sendP2PQuestion(content: string) {
+    if (!this.p2pNetwork) {
+      throw new Error("P2P network not initialized");
+    }
+    const messageId = await this.p2pNetwork.sendQuestion(content);
+    return messageId;
+  }
+
+  public async analyzeTwitterTimeline(
+    username: string,
+    options: TimelineAnalysisOptions
+  ): Promise<TimelineTweet[]> {
+    if (!this.twitterManager) {
+      throw new Error("Twitter manager not initialized");
+    }
+
+    return this.twitterManager.analyzeTimeline(username, options);
+  }
+
+  public log(message: string, data?: any) {
+    log.userLog(message, data);
+  }
+
+  public async schedulePost(config: ScheduledPostConfig): Promise<boolean> {
+    if (!config.enabled) {
+      return false;
+    }
+
+    if (!this.scheduledPostManager) {
+      throw new Error("Scheduler is not enabled in AIOptions");
+    }
+
+    return this.scheduledPostManager.schedulePost(config);
+  }
+
+  public async unschedulePost(type: string): Promise<boolean> {
+    if (!this.scheduledPostManager) {
+      throw new Error(
+        "Scheduler is not enabled. Enable it in AIOptions to use scheduling features."
+      );
+    }
+    return this.scheduledPostManager.unschedulePost(type);
+  }
+
+  public getScheduledPosts(): string[] {
+    if (!this.scheduledPostManager) {
+      throw new Error(
+        "Scheduler is not enabled. Enable it in AIOptions to use scheduling features."
+      );
+    }
+    return this.scheduledPostManager.getScheduledPosts();
   }
 }

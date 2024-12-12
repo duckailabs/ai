@@ -1,6 +1,74 @@
 import type { QuantumPersonalityConfig } from "@/core/types";
 import type { ResponseStyles } from "./style";
 
+// Base prompt format type
+type AIPromptFormat = {
+  type: "json" | "text";
+  structure?: string;
+};
+
+// Base prompt type
+interface BaseAIPrompt {
+  system: string;
+  context?: string;
+  examples?: Array<{
+    input: string;
+    output: string;
+  }>;
+}
+
+// Text prompt type
+interface TextAIPrompt extends BaseAIPrompt {
+  format: {
+    type: "text";
+  };
+}
+
+// JSON prompt type
+interface JSONAIPrompt extends BaseAIPrompt {
+  format: {
+    type: "json";
+    structure: string;
+  };
+}
+
+// Union type for all prompt types
+type AIPrompt = TextAIPrompt | JSONAIPrompt;
+
+// Extended type for scheduled posts
+interface ScheduledPostPrompt extends BaseAIPrompt {
+  format: AIPromptFormat;
+  requiredTools?: string[];
+  schedule?: {
+    cron: string;
+    timezone?: string;
+  };
+  formatting?: {
+    prefix?: string;
+    suffix?: string;
+    template?: string;
+    maxLength?: number;
+    allowMarkdown?: boolean;
+    customRules?: string[];
+  };
+}
+
+// Define the scheduled posts section
+type ScheduledPosts = {
+  [key: string]: ScheduledPostPrompt;
+};
+
+// Main prompts type that matches the actual usage
+export type CharacterPrompts = {
+  [key: string]: {
+    system: string;
+    format?: {
+      type: "text" | "json";
+      structure?: string;
+    };
+  };
+};
+
 export type CharacterTrait = {
   name: string;
   value: number;
@@ -64,6 +132,7 @@ export type CreateCharacterInput = {
     };
   }>;
   quantumPersonality?: QuantumPersonalityConfig;
+  prompts?: CharacterPrompts;
 };
 
 export type CharacterUpdate = Partial<CreateCharacterInput> & {
