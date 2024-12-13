@@ -33,7 +33,7 @@ interface P2PAgentMessage {
 }
 
 interface P2PNetworkConfig {
-  turnkeyClient: Turnkey;
+  turnkeyClient: Turnkey | null | undefined;
   tokenMintAddress: string;
   rewardAmount: number;
   address: string;
@@ -83,6 +83,9 @@ export class P2PNetwork {
     this.agentMetadata = metadata;
 
     // Initialize token airdrop
+    if (!config.turnkeyClient) {
+      throw new Error("Turnkey client is required for P2P network");
+    }
     this.tokenAirdrop = new DuckAiTokenAirdrop(
       config.turnkeyClient,
       config.address,

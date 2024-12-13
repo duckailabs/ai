@@ -109,7 +109,7 @@ export interface AIOptions {
       privateKey: string;
       initialPeers: string[];
       port: number;
-      turnkeyClient: Turnkey;
+      turnkeyClient: Turnkey | null | undefined;
       address: string;
     };
   };

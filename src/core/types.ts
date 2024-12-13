@@ -306,14 +306,6 @@ export type InteractionInput =
       user: string;
     };
 
-// Core configuration types
-export interface AIOptions {
-  enableLogging?: boolean;
-  enableMetrics?: boolean;
-  enableCache?: boolean;
-  maxRetries?: number;
-  timeoutMs?: number;
-}
 // Core event types
 export type AIEvent = {
   type: "interaction" | "memory" | "character" | "error";
