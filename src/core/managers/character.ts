@@ -49,6 +49,14 @@ export class CharacterManager {
     }
   }
 
+  async findCharacterByName(name: string) {
+    const [character] = await this.db
+      .select()
+      .from(dbSchemas.characters)
+      .where(eq(dbSchemas.characters.name, name));
+    return character;
+  }
+
   async updateCharacter(id: string, update: CharacterUpdate) {
     try {
       if (update.responseStyles) {

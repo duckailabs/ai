@@ -11,6 +11,9 @@
     "url": "https://github.com/fatduckai/ai.git"
   },
   "scripts": {
+    "fatduck-dev": "fatduck dev",
+    "dev:no-reload": "fatduck dev --no-reload",
+    "dev:ducky": "fatduck dev --agent fatduck",
     "build": "bun run build:clean && bun run build:js && bun run build:types",
     "build:clean": "rm -rf dist",
     "build:js": "bun build ./src/core/ai.ts --outdir ./dist --target node --sourcemap=external",
@@ -86,6 +89,7 @@
     "@turnkey/solana": "^1.0.6",
     "axios": "^1.7.8",
     "chalk": "^5.3.0",
+    "chokidar": "^4.0.1",
     "commander": "^12.1.0",
     "dotenv": "^16.4.5",
     "drizzle-orm": "^0.36.3",
@@ -95,6 +99,7 @@
     "glob": "^11.0.0",
     "headers-polyfill": "^4.0.3",
     "libp2p": "^2.3.1",
+    "lodash": "^4.17.21",
     "node-cron": "^3.0.3",
     "openai": "^4.72.0",
     "postgres": "^3.4.5",
@@ -112,6 +117,7 @@
     "@changesets/cli": "^2.27.9",
     "@types/bun": "^1.1.13",
     "@types/figlet": "^1.7.0",
+    "@types/lodash": "^4.17.13",
     "@types/node-cron": "^3.0.11",
     "bun-types": "latest",
     "drizzle-kit": "^0.28.1",
