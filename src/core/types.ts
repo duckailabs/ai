@@ -2,13 +2,13 @@ import type { Character } from "@/db/schema/schema";
 import type {
   CharacterUpdate,
   CreateCharacterInput,
-  LLMResponse,
   Memory,
   MemoryType,
   Platform,
   ResponseStyles,
   StyleSettings,
 } from "../types";
+import type { QuantumPersonalitySettings } from "./managers/quantum-personality";
 
 export type {
   CharacterUpdate,
@@ -38,27 +38,9 @@ export type QuantumPersonalityConfig = {
     guidelines: string[];
   };
   creativityLevels: {
-    low: {
-      personalityTraits: string[];
-      styleModifiers: {
-        tone: string[];
-        guidelines: string[];
-      };
-    };
-    medium: {
-      personalityTraits: string[];
-      styleModifiers: {
-        tone: string[];
-        guidelines: string[];
-      };
-    };
-    high: {
-      personalityTraits: string[];
-      styleModifiers: {
-        tone: string[];
-        guidelines: string[];
-      };
-    };
+    low: Omit<QuantumPersonalitySettings, "temperature">;
+    medium: Omit<QuantumPersonalitySettings, "temperature">;
+    high: Omit<QuantumPersonalitySettings, "temperature">;
   };
   temperatureRange: {
     min: number;
@@ -115,20 +97,6 @@ export interface IStyleManager {
     platform: Platform,
     responseType: ResponseType
   ): StyleSettings;
-}
-
-export interface ILLMManager {
-  generateResponse(
-    messages: any[],
-    options?: Record<string, any>
-  ): Promise<LLMResponse>;
-
-  analyzeImportance(
-    content: string,
-    context?: Record<string, any>
-  ): Promise<number>;
-
-  preparePrompt(template: string, context: Record<string, any>): Promise<any[]>;
 }
 
 interface ImageGenerationMetadata {
@@ -337,22 +305,6 @@ export type InteractionInput =
       system: string;
       user: string;
     };
-
-// Core configuration types
-export interface AIOptions {
-  enableLogging?: boolean;
-  enableMetrics?: boolean;
-  enableCache?: boolean;
-  maxRetries?: number;
-  timeoutMs?: number;
-}
-
-export interface ManagerConfig {
-  characterManager?: Partial<ICharacterManager>;
-  memoryManager?: Partial<IMemoryManager>;
-  styleManager?: Partial<IStyleManager>;
-  llmManager?: Partial<ILLMManager>;
-}
 
 // Core event types
 export type AIEvent = {

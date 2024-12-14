@@ -1,7 +1,7 @@
 import type { Platform } from "@/types";
 import type { Server } from "bun";
 import crypto from "crypto";
-import type { ai } from "../../ai";
+import type { AICore } from "../../ai";
 import { ImageManager } from "../../managers/image";
 export interface ServerConfig {
   enabled: boolean;
@@ -16,10 +16,10 @@ export interface ServerConfig {
 export class APIServer {
   private server: Server | null = null;
   private config: ServerConfig;
-  private ai: ai;
+  private ai: AICore;
   private imageManager: ImageManager;
 
-  constructor(ai: ai, config: ServerConfig) {
+  constructor(ai: AICore, config: ServerConfig) {
     this.ai = ai;
     this.imageManager = new ImageManager(ai.llmManager, ai.eventService);
     this.config = config;

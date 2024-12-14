@@ -1,4 +1,5 @@
 import { dbSchemas } from "@/db";
+import type { Character } from "@/db/schema/schema";
 import {
   type CharacterUpdate,
   type CreateCharacterInput,
@@ -10,7 +11,7 @@ import { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 export class CharacterManager {
   constructor(private db: PostgresJsDatabase<typeof dbSchemas>) {}
 
-  async getCharacter(id?: string) {
+  async getCharacter(id?: string): Promise<Character | null> {
     if (id) {
       const [character] = await this.db
         .select()
@@ -46,6 +47,14 @@ export class CharacterManager {
       console.error("Error creating character:", error);
       throw error;
     }
+  }
+
+  async findCharacterByName(name: string) {
+    const [character] = await this.db
+      .select()
+      .from(dbSchemas.characters)
+      .where(eq(dbSchemas.characters.name, name));
+    return character;
   }
 
   async updateCharacter(id: string, update: CharacterUpdate) {

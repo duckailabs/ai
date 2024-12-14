@@ -1,10 +1,11 @@
 import type { Character, Coin } from "@/db/schema/schema";
+import type { ChatMessage } from "@fatduckai/prompt-utils";
 import { OpenAI } from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
+import type { MarketUpdateData } from "../../agents/agent/ai/tools/fatduck";
 import type { ImageGenerationResult } from "../types";
 import { log } from "../utils/logger";
 import type { CharacterManager } from "./character";
-import type { MarketUpdateData } from "./fatduck";
 import { QuantumStateManager } from "./quantum";
 import {
   QuantumPersonalityMapper,
@@ -134,7 +135,7 @@ export class LLMManager {
   /**
    * @deprecated
    */
-  async generateResponse(
+  /* async generateResponse_old(
     messages: ChatCompletionMessageParam[],
     options?: Record<string, any>
   ) {
@@ -215,11 +216,6 @@ ${mergedSettings.guidelines
 Base instruction: ${systemMessage.content}
 `;
 
-        /* log.warn("Final prompt construction:", {
-          systemPrompt: enhancedSystemPrompt,
-          temperature,
-          mergedSettings,
-        }); */
 
         // Update the system message with enhanced prompt
         systemMessage.content = enhancedSystemPrompt;
@@ -246,7 +242,7 @@ Base instruction: ${systemMessage.content}
       console.error("Error generating response:", error);
       throw error;
     }
-  }
+  } */
 
   async generateResponsev2(
     messages: ChatCompletionMessageParam[],
@@ -991,5 +987,182 @@ Guidelines: ${character.responseStyles.platforms.twitter?.styles.tweet_reply?.gu
         insights: `Significant market activity detected for multiple tokens.`,
       };
     }
+  }
+
+  private async getQuantumPersonality() {
+    let personalitySettings;
+    if (this.quantumPersonalityMapper) {
+      personalitySettings =
+        await this.quantumPersonalityMapper.mapQuantumToPersonality();
+    }
+    return personalitySettings;
+  }
+
+  public async mergeWithCharacterSettingsV2() {
+    const character = await this.characterManager.getCharacter();
+    const baseSettings = character?.responseStyles?.default ?? {
+      tone: [],
+      personality: [],
+      guidelines: [],
+    };
+
+    const personalitySettings = await this.getQuantumPersonality();
+
+    // Return just the merged settings object instead of a formatted string
+    return {
+      tone: [
+        ...new Set([
+          ...(baseSettings.tone ?? []),
+          ...(personalitySettings?.styleModifiers.tone ?? []),
+        ]),
+      ],
+      personality: [
+        ...new Set([
+          ...(baseSettings.personality ?? []),
+          ...(personalitySettings?.personalityTraits ?? []),
+        ]),
+      ],
+      guidelines: [
+        ...new Set([
+          ...(baseSettings.guidelines ?? []),
+          ...(personalitySettings?.styleModifiers.guidelines ?? []),
+        ]),
+      ],
+    };
+  }
+
+  public async mergeWithCharacterSettings(
+    prompt: string,
+    character: Character
+  ) {
+    if (!character) return prompt;
+
+    const baseSettings = character?.responseStyles?.default ?? {
+      tone: [],
+      personality: [],
+      guidelines: [],
+    };
+
+    const personalitySettings = await this.getQuantumPersonality();
+
+    // Merge base settings with quantum settings if available
+    const mergedSettings = {
+      tone: [
+        ...new Set([
+          ...(baseSettings.tone ?? []),
+          ...(personalitySettings?.styleModifiers.tone ?? []),
+        ]),
+      ],
+      personality: [
+        ...new Set([
+          ...(baseSettings.personality ?? []),
+          ...(personalitySettings?.personalityTraits ?? []),
+        ]),
+      ],
+      guidelines: [
+        ...new Set([
+          ...(baseSettings.guidelines ?? []),
+          ...(personalitySettings?.styleModifiers.guidelines ?? []),
+        ]),
+      ],
+    };
+
+    return `${prompt}\n\nTone: ${mergedSettings.tone.join(", ")}
+Personality: ${mergedSettings.personality.join(", ")}
+Guidelines: ${mergedSettings.guidelines.join("\n- ")}`;
+  }
+
+  async generatePrompt(prompt: ChatMessage[]) {
+    const response = await this.openai.chat.completions.create({
+      model: this.config.llm.model,
+      messages: prompt,
+      temperature:
+        /* personalitySettings?.temperature || */ this.config.llm.temperature,
+    });
+
+    return response.choices[0].message.content;
+  }
+
+  async generatePromptJson<T>(
+    prompt: string,
+    responseStructure: string
+  ): Promise<T> {
+    let personalitySettings = await this.getQuantumPersonality();
+    const character = await this.characterManager.getCharacter();
+
+    // Merge base settings with quantum settings
+    const mergedPrompt = character
+      ? await this.mergeWithCharacterSettings(prompt, character)
+      : prompt;
+
+    // Add JSON structure requirement
+    const jsonPrompt = `${mergedPrompt}\n\nRespond with valid JSON matching this structure:\n${responseStructure}`;
+
+    // Moderation check
+    const moderationResult = await this.moderateContent(jsonPrompt);
+    if (!moderationResult.isAppropriate) {
+      throw new Error(`Content moderation failed: ${moderationResult.reason}`);
+    }
+
+    const response = await this.openai.chat.completions.create({
+      model: this.config.llm.model,
+      messages: [{ role: "user", content: jsonPrompt }],
+      temperature:
+        personalitySettings?.temperature || this.config.llm.temperature,
+      response_format: { type: "json_object" },
+    });
+
+    try {
+      return JSON.parse(response.choices[0].message.content || "{}") as T;
+    } catch (error) {
+      throw new Error(`Failed to parse JSON response: ${error}`);
+    }
+  }
+
+  async generatePromptImage(prompt: string): Promise<{
+    url: string;
+    description: string;
+  }> {
+    let personalitySettings = await this.getQuantumPersonality();
+    const character = await this.characterManager.getCharacter();
+
+    // Get character image settings
+    const style =
+      character?.identity?.imageStyle || this.config.imageGeneration?.style;
+    const description =
+      character?.identity?.imageDescription ||
+      this.config.imageGeneration?.description;
+
+    // Merge character settings
+    const mergedPrompt = character
+      ? await this.mergeWithCharacterSettings(prompt, character)
+      : prompt;
+
+    // Construct safe prompt with image specifics
+    const safePrompt =
+      `${description} and ${mergedPrompt}. In a ${style}`.trim();
+
+    // Moderation check
+    const moderationResult = await this.moderateContent(safePrompt);
+    if (!moderationResult.isAppropriate) {
+      throw new Error(`Content moderation failed: ${moderationResult.reason}`);
+    }
+
+    // Generate image
+    const response = await this.openai.images.generate({
+      prompt: safePrompt,
+      model: this.config.imageGeneration?.model,
+      n: 1,
+    });
+
+    const imageUrl = response.data[0]?.url;
+    if (!imageUrl) {
+      throw new Error("No image URL received");
+    }
+
+    return {
+      url: imageUrl,
+      description: safePrompt,
+    };
   }
 }

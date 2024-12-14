@@ -1,11 +1,11 @@
-import type { ai } from "@/core/ai";
+import type { AICore } from "@/core/ai";
 import type { ImageManager } from "@/core/managers/image";
 import type { Context } from "telegraf";
 
 export class ImageHandler {
   constructor(
     private imageManager: ImageManager,
-    private ai: ai // Your existing AI instance
+    private ai: AICore // Your existing AI instance
   ) {}
 
   async handleImageGeneration(ctx: Context) {

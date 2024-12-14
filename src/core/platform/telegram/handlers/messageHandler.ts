@@ -1,4 +1,4 @@
-import type { ai } from "@/core/ai";
+import type { AICore } from "@/core/ai";
 import type { InteractionDefaults } from "@/types";
 import { Context } from "telegraf";
 import type { Message } from "telegraf/types";
@@ -19,7 +19,7 @@ export class MessageHandler {
     new Map();
   private promptService: PromptService;
 
-  constructor(private ai: ai, private defaults?: InteractionDefaults) {
+  constructor(private ai: AICore, private defaults?: InteractionDefaults) {
     this.setupCleanupInterval();
     this.promptService = new PromptService();
   }
