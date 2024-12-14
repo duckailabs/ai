@@ -180,3 +180,11 @@ dist
 
 ./src/core/config/Ducky.json
 ./src/core/config/Test.json
+
+
+
+
+./src/core/config/Ducky.json
+./src/core/config/Test.json
+**/cookie.json
+**/cookies.json

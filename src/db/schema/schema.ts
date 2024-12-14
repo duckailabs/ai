@@ -1,5 +1,5 @@
 import type { QuantumPersonalityConfig } from "@/core/types";
-import type { Preferences, ResponseStyles } from "@/types";
+import type { CharacterPrompts, Preferences, ResponseStyles } from "@/types";
 import { sql } from "drizzle-orm";
 import {
   boolean,
@@ -53,6 +53,7 @@ export const platformEnum = pgEnum("platform", [
   "slack",
   "api",
   "system",
+  "echoChambers",
 ]);
 
 export const responseTypeEnum = pgEnum("response_type", [
@@ -180,7 +181,7 @@ export const characters = pgTable("characters", {
       professional: { rules: [], examples: [] },
       casual: { rules: [], examples: [] },
     }),
-
+  prompts: jsonb("prompts").$type<CharacterPrompts>().default({}),
   shouldRespond: jsonb("should_respond").$type<{
     rules: string[];
     examples: string[];

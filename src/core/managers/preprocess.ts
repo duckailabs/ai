@@ -1,4 +1,4 @@
-import { getToken, getTokenMetrics } from "@/agent/ai/tools/token";
+import { getToken, getTokenMetrics } from "@/agents/agent/ai/tools/token";
 import { TwitterClient } from "@/core/platform/twitter/api/src/client";
 import type { Tweet } from "@/core/platform/twitter/api/src/interfaces";
 import type { Platform } from "@/types";
