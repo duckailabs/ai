@@ -344,7 +344,7 @@ export class ScheduledPostManager {
           tweetText += `${categoryData.category.name}:\n`;
 
           // Add all movements (up to 3 per category)
-          for (const movement of categoryData.movements.slice(0, 3)) {
+          for (const movement of categoryData.movements.slice(0, 5)) {
             const changePrefix =
               movement.metrics.price.change1h >= 0 ? "+" : "";
             log.info(
