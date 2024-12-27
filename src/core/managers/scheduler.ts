@@ -344,7 +344,7 @@ export class ScheduledPostManager {
           tweetText += `${categoryData.category.name}:\n`;
 
           // Add all movements (up to 3 per category)
-          for (const movement of categoryData.movements.slice(0, 5)) {
+          for (const movement of categoryData.movements.slice(0, 3)) {
             const changePrefix =
               movement.metrics.price.change1h >= 0 ? "+" : "";
             log.info(
@@ -493,7 +493,7 @@ export class ScheduledPostManager {
         ? "virtuals-protocol-ecosystem"
         : "ai-meme-coins";
 
-      let tweetText = "🔄 Top Market Cap\n\n";
+      let tweetText = "🔄 Top Market Cap Movers\n\n";
 
       log.info(`Fetching data for category: ${category}`);
       const response = await this.ai.fatduckManager.getTopMarketCapMovers(
@@ -522,7 +522,17 @@ export class ScheduledPostManager {
           (a, b) => b.metrics.marketCap.current - a.metrics.marketCap.current
         );
 
-      for (const mover of topMovers) {
+      // Sort by market cap and filter duplicates
+      const uniqueMovers = topMovers.reduce((acc: typeof topMovers, mover) => {
+        // Only add if symbol doesn't exist in accumulator yet
+        if (!acc.find((m) => m.symbol === mover.symbol)) {
+          acc.push(mover);
+        }
+        return acc;
+      }, []);
+
+      // Use uniqueMovers instead of topMovers for the loop
+      for (const mover of uniqueMovers) {
         const mcInMillions = mover.metrics.marketCap.current / 1000000;
         const mcFormatted =
           mcInMillions >= 1000
