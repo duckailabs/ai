@@ -581,6 +581,104 @@ Return only a number between 0 and 1.`;
     return flattened;
   }
 
+  async generateGluUpdates(context?: ScheduledPostContext): Promise<{
+    tweetText: string;
+  }> {
+    try {
+      const character = await this.characterManager.getCharacter();
+      if (!character) throw new Error("Character not found");
+
+      // Get quantum personality if available
+      let personalitySettings: QuantumPersonalitySettings | undefined;
+      if (this.quantumPersonalityMapper) {
+        personalitySettings =
+          await this.quantumPersonalityMapper.mapQuantumToPersonality();
+      }
+
+      // Construct timeline context if available
+      const timelinePrompt = context?.timelineContext
+        ? `
+  Recent activity from 0xglu:
+  ${context.timelineContext.recentTweets
+    .map(
+      (tweet) =>
+        `- ${tweet.text} (${new Date(tweet.createdAt).toLocaleString()})`
+    )
+    .join("\n")}
+  
+  Token metrics and market data:
+  ${JSON.stringify(context.timelineContext.tokenMetrics, null, 2)}
+  
+
+  Use this context to inform the tone and content of the tweet.
+  `
+        : "";
+
+      // Construct prompt using character style and quantum mood
+      const moodModifiers = personalitySettings?.styleModifiers.tone || [];
+      const prompt = `${
+        character.identity?.imageDescription
+      } with ${moodModifiers.join(" and ")} mood and ${
+        character.identity?.imageStyle
+      } with ${character.responseStyles.platforms.twitter?.styles.tweet_reply?.guidelines.join(
+        ", "
+      )}
+  
+      ${timelinePrompt}`.trim();
+
+      // Generate image using FLUX
+      const response = await this.openai.images.generate({
+        prompt,
+        model: this.config.imageGeneration?.model,
+        n: 1,
+      });
+      if (!response.data[0]?.url) {
+        throw new Error("Failed to generate image");
+      }
+
+      // Generate tweet with matching quantum personality and timeline context
+      const tweetPrompt = await this.openai.chat.completions.create({
+        model: this.config.llm.model,
+        temperature:
+          personalitySettings?.temperature || this.config.llm.temperature,
+        messages: [
+          {
+            role: "system",
+            content: `You are ${character.name}. ${character.bio}
+  Personality: ${
+    personalitySettings?.personalityTraits.join(", ") ||
+    character.personalityTraits.join(", ")
+  }
+  Mood: ${moodModifiers.join(", ")}
+  
+  Guidelines: ${character.responseStyles.platforms.twitter?.styles.tweet_reply?.guidelines.join(
+    ", "
+  )}
+  
+  ${timelinePrompt}
+  
+  Write a short, engaging tweet.
+  Consider the recent timeline context and token metrics in your response.
+  Follow Twitter style guidelines.
+  Match the current mood and market context in your response. RULES: NO QUOTES around the description just the description`,
+          },
+        ],
+      });
+
+      const tweetText = `🦆 $DUCKAI Updates 🦆 \n\n
+
+${tweetPrompt.choices[0]?.message?.content}`;
+      if (!tweetText) throw new Error("Failed to generate tweet text");
+
+      return {
+        tweetText,
+      };
+    } catch (error) {
+      console.error("Error generating scheduled image post:", error);
+      throw error;
+    }
+  }
+
   async generateScheduledImagePost(context?: ScheduledPostContext): Promise<{
     imageUrl: string;
     tweetText: string;
@@ -753,7 +851,7 @@ Write a summary of the recent market news and token metrics.
 Follow Twitter style guidelines.
 If refering to marketcap use millions or billions.
 You do not have to respond to every news story, if major news stories are mentioned, definitely include those.
-Preferece the analysis with 🦆 DUCKY MARKET UPDATE 🦆
+Preferece the analysis with 📰 News and Market Updates 📰
 Stick to your character
 Be verbose.
 Use line breaks (two lines breaks) these do not count towards the character limit. 

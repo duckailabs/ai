@@ -5,7 +5,12 @@ import type { TwitterClient } from "../platform/twitter/api/src/client";
 import { log } from "../utils/logger";
 
 export interface ScheduledPostConfig {
-  type: "image" | "market_update" | "movers_alpha" | "market_cap_movers";
+  type:
+    | "image"
+    | "market_update"
+    | "movers_alpha"
+    | "market_cap_movers"
+    | "glu_updates";
   schedule: string;
   enabled: boolean;
   maxPerDay?: number;
@@ -107,6 +112,9 @@ export class ScheduledPostManager {
         case "market_cap_movers":
           await this.handleMarketCapMoversPost(correlationId);
           break;
+        case "glu_updates":
+          await this.handleGluUpdates(correlationId);
+          break;
         default:
           throw new Error(`Unsupported post type: ${config.type}`);
       }
@@ -164,6 +172,77 @@ export class ScheduledPostManager {
 
     // Get the image data as a buffer and return it directly
     return await response.buffer();
+  }
+
+  private async handleGluUpdates(correlationId: string) {
+    try {
+      // Get timeline context before generating content
+      const timelineContext = await this.analyzeTimeline();
+
+      // Generate image post content with timeline context
+      const { tweetText } = await this.ai.llmManager.generateGluUpdates({
+        timelineContext: timelineContext || undefined,
+      });
+
+      // Track content generation
+      await this.ai.eventService.createInteractionEvent("interaction.started", {
+        input: tweetText,
+        responseType: "glu_updates",
+        platform: "twitter",
+        timestamp: new Date().toISOString(),
+        messageId: "",
+        replyTo: "",
+        hasMention: false,
+        /* imageGeneration: {
+          url: imageUrl,
+        }, */
+        user: {
+          id: "",
+          metadata: { correlationId },
+        },
+      });
+
+      // Post to Twitter
+      if (this.debug) {
+        log.info("Debug mode enabled, skipping Twitter post");
+        log.info("Tweet text:", tweetText);
+        return;
+      }
+
+      if (this.twitterClient) {
+        const tweet = await this.twitterClient.sendTweet(tweetText);
+
+        await this.ai.eventService.createInteractionEvent(
+          "interaction.completed",
+          {
+            input: tweetText,
+            response: tweet.id,
+            responseType: "glu_updates",
+            platform: "twitter",
+            processingTime: 0,
+            timestamp: new Date().toISOString(),
+            messageId: "",
+            replyTo: "",
+            user: {
+              id: "",
+              metadata: { correlationId },
+            },
+          }
+        );
+      }
+    } catch (error) {
+      await this.ai.eventService.createInteractionEvent("interaction.failed", {
+        input: "",
+        error: error instanceof Error ? error.message : "Unknown error",
+        timestamp: new Date().toISOString(),
+        messageId: "",
+        user: {
+          id: "",
+          metadata: { correlationId },
+        },
+      });
+      throw error;
+    }
   }
 
   private async handleImagePost(correlationId: string) {

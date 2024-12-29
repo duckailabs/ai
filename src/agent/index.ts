@@ -79,7 +79,7 @@ const instance = await ai.initialize({
     posts: [
       {
         type: "image",
-        schedule: "0 */2 * * *", // Every 4 hours
+        schedule: "0 */2 * * *", // Every 2 hours
         enabled: true,
       },
       {
@@ -95,6 +95,11 @@ const instance = await ai.initialize({
       {
         type: "market_cap_movers",
         schedule: "20 */4 * * *", // Every 4 hours and 10 minutes
+        enabled: true,
+      },
+      {
+        type: "glu_updates",
+        schedule: "0 */1 * * *", // Every 1 hour
         enabled: true,
       },
     ],
