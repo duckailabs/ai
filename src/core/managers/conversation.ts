@@ -17,6 +17,7 @@ import type {
   MessageEvent,
 } from "../types";
 import type { LLMManager } from "./llm";
+
 export class ConversationManager {
   private activeConversations = new Map<string, ConversationState>();
   private readonly MIN_REPLY_DELAY_MS = 500;
@@ -238,16 +239,33 @@ export class ConversationManager {
 
   private updateConversationState(chatId: string, event: MessageEvent) {
     const state = this.activeConversations.get(chatId) ?? {
-      activeParticipants: new Set<string>(),
+      activeParticipants: new Map<string, Date>(),
       messageCount: 0,
       lastMessageTime: new Date(),
     };
 
-    state.activeParticipants.add(event.senderId);
+    state.activeParticipants.set(event.senderId, event.timestamp);
     state.messageCount++;
     state.lastMessageTime = event.timestamp;
 
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    for (const [
+      participantId,
+      lastActive,
+    ] of state.activeParticipants.entries()) {
+      if (lastActive < fiveMinutesAgo) {
+        state.activeParticipants.delete(participantId);
+      }
+    }
+
     this.activeConversations.set(chatId, state);
+  }
+
+  private getRecentParticipantCount(state: ConversationState): number {
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    return Array.from(state.activeParticipants.values()).filter(
+      (time) => time >= fiveMinutesAgo
+    ).length;
   }
 
   private recordResponseInState(chatId: string) {
@@ -259,20 +277,21 @@ export class ConversationManager {
   }
 
   /**
-   * 4:00:00 PM: Ducky responds to message
-   * 4:00:05 PM: New message → No response (< 10 seconds)
-   * 4:00:15 PM: New message → No response (30% chance failed)
-   * 4:00:30 PM: New message → Responds (30% chance succeeded)
-   * 4:00:35 PM: New message → No response (< 10 seconds since last response)
-   * 4:05:30 PM: New message → Will definitely respond (5+ minutes passed)
+   * How Ducky decides when to respond:
    *
-   * 2:00 PM: Ducky responds
-   * 2:01 PM: [silence - nothing happens]
-   * 2:02 PM: [silence - nothing happens]
-   * 2:03 PM: User sends message → shouldRespond() is called now
-   *         - Checks if it's been 5 mins since Ducky's last message (no)
-   *         - Checks if it's been > 10s and rolls 30% chance
-   *         - Ducky responds
+   * Always Responds To:
+   * - Direct mentions
+   * - Private messages
+   * - Important messages/questions (LLM score > 0.7)
+   *
+   * Never Responds To:
+   * - 1-on-1 conversations between others
+   * - Regular group chat messages
+   *
+   * Response Timing:
+   * - Active chats: Quick response (500ms)
+   * - New chats: Slower response (3s)
+   * - Plus 0-1s random delay for natural feel
    */
   private async shouldRespond(
     group: typeof telegramGroups.$inferSelect,
@@ -297,23 +316,23 @@ export class ConversationManager {
       return false;
     }
 
-    // Try LLM analysis first
-    try {
-      const importance = await this.llm.analyzeImportance(messageContent);
-      if (importance > 0.7) return true; // Respond immediately to important messages
-    } catch (error) {
-      console.error("Error analyzing message importance:", error);
+    // Get number of active participants in last 5 minutes
+    const recentParticipants = this.getRecentParticipantCount(state);
+
+    // If exactly 2 participants and Ducky isn't one of them, likely a 1-on-1 conversation
+    // We should avoid interrupting unless directly addressed
+    if (recentParticipants === 2 && !state.lastDuckyMessage) {
+      return false;
     }
 
-    // Natural response factors (if message wasn't important enough)
-    const timeSinceLastDucky = state.lastDuckyMessage
-      ? Date.now() - state.lastDuckyMessage.getTime()
-      : Infinity;
-
-    return (
-      timeSinceLastDucky > 5 * 60 * 1000 || // Been quiet for 5 minutes
-      (Math.random() < 0.5 && timeSinceLastDucky > 10 * 1000) // Random chance if not recent
-    );
+    // Only respond to important messages or questions
+    try {
+      const importance = await this.llm.analyzeImportance(messageContent);
+      return importance > 0.7;
+    } catch (error) {
+      console.error("Error analyzing message importance:", error);
+      return false;
+    }
   }
 
   private calculateResponseDelay(chatId: string): number {
@@ -375,10 +394,15 @@ export class ConversationManager {
       .filter((m): m is NonNullable<typeof m> => m !== null);
 
     const state = this.activeConversations.get(currentEvent.chatId);
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 
     return {
       conversationState: {
-        activeParticipants: state ? Array.from(state.activeParticipants) : [],
+        activeParticipants: state
+          ? Array.from(state.activeParticipants.entries())
+              .filter(([_, lastActive]) => lastActive >= fiveMinutesAgo)
+              .map(([id]) => id)
+          : [],
         messageCount: state?.messageCount ?? 0,
         isActiveConversation: !!state,
       },
