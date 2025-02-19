@@ -39,6 +39,14 @@ export class ConversationManager {
   ): Promise<InteractionResult | null> {
     const startTime = Date.now();
     const sessionId = crypto.randomUUID();
+
+    console.log(`[HandleMessage] Processing message:`, {
+      input: typeof input === "string" ? input : input.user,
+      hasMention: options.hasMention,
+      chatId: options.chatId,
+      messageId: options.messageId,
+    });
+
     try {
       // Get or validate group
       const group = await this.getGroup(options.chatId);
@@ -298,39 +306,94 @@ export class ConversationManager {
     hasMention: boolean,
     messageContent: string
   ): Promise<boolean> {
+    console.log(`[ResponseDecision] Analyzing message: "${messageContent}"`);
+    console.log(`[ResponseDecision] Has mention flag: ${hasMention}`);
+    console.log(`[ResponseDecision] Group ID: ${group.telegramId}`);
+
     // Always respond to mentions
-    if (hasMention) return true;
+    if (hasMention) {
+      console.log("[ResponseDecision] Responding due to mention");
+      return true;
+    }
+
+    // Check for @duckyai_ai_bot in the message content as backup
+    if (messageContent.toLowerCase().includes("@duckyai_ai_bot")) {
+      console.log(
+        "[ResponseDecision] Responding due to @duckyai_ai_bot in message"
+      );
+      return true;
+    }
 
     const isPrivateChat = !group.telegramId.startsWith("-");
     if (isPrivateChat) {
+      console.log("[ResponseDecision] Responding due to private chat");
       return true;
     }
 
     const state = this.activeConversations.get(group.telegramId);
-    if (!state) return false;
+    if (!state) {
+      console.log("[ResponseDecision] No conversation state found");
+      return false;
+    }
 
     // Check if conversation is still active
     const conversationAge = Date.now() - state.lastMessageTime.getTime();
+    console.log(`[ResponseDecision] Conversation age: ${conversationAge}ms`);
+
     if (conversationAge > this.CONVERSATION_TIMEOUT_MS) {
+      console.log("[ResponseDecision] Conversation timed out");
       this.activeConversations.delete(group.telegramId);
       return false;
     }
 
     // Get number of active participants in last 5 minutes
     const recentParticipants = this.getRecentParticipantCount(state);
+    console.log(
+      `[ResponseDecision] Recent participants: ${recentParticipants}`
+    );
 
     // If exactly 2 participants and Ducky isn't one of them, likely a 1-on-1 conversation
-    // We should avoid interrupting unless directly addressed
     if (recentParticipants === 2 && !state.lastDuckyMessage) {
+      console.log(
+        "[ResponseDecision] Skipping due to likely 1-on-1 conversation"
+      );
       return false;
+    }
+
+    // Check for direct greetings
+    const lowerContent = messageContent.toLowerCase();
+    const greetings = [
+      "hey ducky",
+      "hi ducky",
+      "hello ducky",
+      "yo ducky",
+      "hey @duckyai_ai_bot",
+      "hi @duckyai_ai_bot",
+      "hello @duckyai_ai_bot",
+      "yo @duckyai_ai_bot",
+    ];
+
+    console.log("[ResponseDecision] Checking greetings...");
+    for (const greeting of greetings) {
+      if (lowerContent.includes(greeting)) {
+        console.log(
+          `[ResponseDecision] Responding due to greeting: ${greeting}`
+        );
+        return true;
+      }
     }
 
     // Only respond to important messages or questions
     try {
+      console.log("[ResponseDecision] Analyzing message importance...");
       const importance = await this.llm.analyzeImportance(messageContent);
+      console.log(`[ResponseDecision] Message importance score: ${importance}`);
       return importance > 0.7;
     } catch (error) {
-      console.error("Error analyzing message importance:", error);
+      console.error(
+        "[ResponseDecision] Error analyzing message importance:",
+        error
+      );
       return false;
     }
   }
