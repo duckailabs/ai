@@ -397,7 +397,7 @@ export interface ConversationParams {
 // Types for conversation state
 export interface ConversationState {
   lastDuckyMessage?: Date;
-  activeParticipants: Set<string>;
+  activeParticipants: Map<string, Date>;
   messageCount: number;
   lastMessageTime: Date;
   currentTopic?: string;
