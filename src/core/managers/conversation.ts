@@ -383,6 +383,19 @@ export class ConversationManager {
       }
     }
 
+    // Check if Ducky recently participated in the conversation
+    if (state.lastDuckyMessage) {
+      const timeSinceLastDuckyMessage =
+        Date.now() - state.lastDuckyMessage.getTime();
+      // Continue responding for 2 minutes after last interaction
+      if (timeSinceLastDuckyMessage < 2 * 60 * 1000) {
+        console.log(
+          "[ResponseDecision] Responding due to recent conversation engagement"
+        );
+        return true;
+      }
+    }
+
     // Only respond to important messages or questions
     try {
       console.log("[ResponseDecision] Analyzing message importance...");
