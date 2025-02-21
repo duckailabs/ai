@@ -147,6 +147,25 @@ export class FatduckManager {
     return response.data;
   }
 
+  async trackTweet(
+    tweetId: string,
+    type: string = "market_news"
+  ): Promise<any> {
+    const { data: response } = await this.client.post<ApiResponse<any>>(
+      "/api/trackTweet",
+      {
+        tweetId,
+        type,
+      }
+    );
+
+    if (!response.success) {
+      throw new Error(response.error.message);
+    }
+
+    return response.data;
+  }
+
   async getTopMarketCapMovers(category: string): Promise<MarketCapMoversData> {
     const { data: response } = await this.client.get<
       ApiResponse<MarketCapMoversData>

@@ -371,7 +371,9 @@ export class ScheduledPostManager {
 
       if (this.twitterClient) {
         const tweet = await this.twitterClient.sendTweet(tweetText);
-        //const tweet = { id: "1234567890" };
+
+        // Track the tweet in Fatduck
+        await this.ai.fatduckManager.trackTweet(tweet.id, "market_news");
 
         await this.ai.eventService.createInteractionEvent(
           "interaction.completed",
