@@ -360,29 +360,6 @@ export class ConversationManager {
       return false;
     }
 
-    // Check for direct greetings
-    const lowerContent = messageContent.toLowerCase();
-    const greetings = [
-      "hey ducky",
-      "hi ducky",
-      "hello ducky",
-      "yo ducky",
-      "hey @duckyai_ai_bot",
-      "hi @duckyai_ai_bot",
-      "hello @duckyai_ai_bot",
-      "yo @duckyai_ai_bot",
-    ];
-
-    console.log("[ResponseDecision] Checking greetings...");
-    for (const greeting of greetings) {
-      if (lowerContent.includes(greeting)) {
-        console.log(
-          `[ResponseDecision] Responding due to greeting: ${greeting}`
-        );
-        return true;
-      }
-    }
-
     // Check if Ducky recently participated in the conversation
     if (state.lastDuckyMessage) {
       const timeSinceLastDuckyMessage =
@@ -399,7 +376,9 @@ export class ConversationManager {
     // Only respond to important messages or questions
     try {
       console.log("[ResponseDecision] Analyzing message importance...");
-      const importance = await this.llm.analyzeImportance(messageContent);
+      const importance = await this.llm.analyzeImportanceTelegram(
+        messageContent
+      );
       console.log(`[ResponseDecision] Message importance score: ${importance}`);
       return importance > 0.7;
     } catch (error) {

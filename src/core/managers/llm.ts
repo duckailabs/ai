@@ -431,6 +431,49 @@ Base instruction: ${systemMessage.content}
     }
   }
 
+  async analyzeImportanceTelegram(
+    content: string,
+    context: Record<string, any> = {}
+  ): Promise<number> {
+    const prompt = `Analyze this message's importance (0.0 to 1.0):
+
+Content: "${content}"
+
+Consider:
+1. Is the message directed at Ducky? (Direct mentions, variations like "duck", questions/commands to AI, informal addressing)
+   - If clearly directed at Ducky, score should be 0.9 or higher
+2. Long-term significance
+3. Emotional weight
+4. Knowledge value
+5. Relationship importance
+6. Direct reference to Ducky such as hey ducky or duck, Ducky, Ducky!
+
+Context provided:
+${Object.entries(context)
+  .map(([key, value]) => `${key}: ${value}`)
+  .join("\n")}
+
+Return only a number between 0 and 1.`;
+
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: this.config.analyzer.model,
+        temperature: this.config.analyzer.temperature,
+        messages: [{ role: "user", content: prompt }],
+      });
+
+      const importance = parseFloat(response.choices[0].message.content ?? "0");
+      if (isNaN(importance) || importance < 0 || importance > 1) {
+        throw new Error("Invalid importance value received");
+      }
+
+      return importance;
+    } catch (error) {
+      console.error("Error analyzing importance:", error);
+      throw error;
+    }
+  }
+
   async analyzeImportance(
     content: string,
     context: Record<string, any> = {}
