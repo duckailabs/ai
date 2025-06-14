@@ -1,5 +1,7 @@
 # AI Character System
 
+Master branch runs [@duckunfiltered](https://x.com/duckunfiltered) on X (Twitter).
+
 A flexible system for creating and managing AI characters with platform-specific response styles and personality traits.
 
 ## Features
