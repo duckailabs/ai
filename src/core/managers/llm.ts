@@ -723,7 +723,6 @@ ${tweetPrompt.choices[0]?.message?.content}`;
   }
 
   async generateScheduledImagePost(context?: ScheduledPostContext): Promise<{
-    imageUrl: string;
     tweetText: string;
   }> {
     try {
@@ -777,14 +776,14 @@ ${tweetPrompt.choices[0]?.message?.content}`;
       }
 
       // Generate image using FLUX
-      const response = await this.openai.images.generate({
+      /*  const response = await this.openai.images.generate({
         prompt,
         model: this.config.imageGeneration?.model,
         n: 1,
-      });
-      if (!response.data[0]?.url) {
+      }); */
+      /*  if (!response.data[0]?.url) {
         throw new Error("Failed to generate image");
-      }
+      } */
 
       // Generate tweet with matching quantum personality and timeline context
       const tweetPrompt = await this.openai.chat.completions.create({
@@ -819,7 +818,6 @@ ${tweetPrompt.choices[0]?.message?.content}`;
       if (!tweetText) throw new Error("Failed to generate tweet text");
 
       return {
-        imageUrl: response.data[0]?.url,
         tweetText,
       };
     } catch (error) {
