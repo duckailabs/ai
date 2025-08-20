@@ -67,7 +67,7 @@ const instance = await ai.initialize({
   coingecko: {
     enabled: true,
     apiKey: process.env.COINGECKO_API_KEY!,
-    updateInterval: "0 0 * * *",
+    updateInterval: "0 0 * * *", // Every day at midnight
     initialScan: {
       enabled: true,
       batchSize: 50, // Process 5 coins in parallel
@@ -80,26 +80,26 @@ const instance = await ai.initialize({
       {
         type: "image",
         schedule: "0 */2 * * *", // Every 2 hours
-        enabled: true,
+        enabled: false,
       },
       {
         type: "market_update",
-        schedule: "30 * * * *", // Every 30 minutes
+        schedule: "0 */12 * * *", // Every 12 hours
         enabled: true,
       },
       {
         type: "movers_alpha",
-        schedule: "10 */1 * * *", // Every 1 hour and 10 minutes
+        schedule: "10 */12 * * *", // Every 12 hours and 10 minutes
         enabled: true,
       },
       {
         type: "market_cap_movers",
-        schedule: "20 */4 * * *", // Every 4 hours and 10 minutes
+        schedule: "20 */12 * * *", // Every 12 hours and 20 minutes
         enabled: true,
       },
       {
         type: "glu_updates",
-        schedule: "0 */1 * * *", // Every 1 hour
+        schedule: "0 */12 * * *", // Every 1 hour
         enabled: true,
       },
     ],
@@ -147,7 +147,7 @@ const instance = await ai.initialize({
     },
   },
   quantum: {
-    enabled: true,
+    enabled: false,
     checkInitialState: false,
     cronSchedule: "0 */4 * * *", // 4 hours
     ibmConfig: {

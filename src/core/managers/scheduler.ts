@@ -251,10 +251,11 @@ export class ScheduledPostManager {
       const timelineContext = await this.analyzeTimeline();
 
       // Generate image post content with timeline context
-      const { imageUrl, tweetText } =
-        await this.ai.llmManager.generateScheduledImagePost({
+      const { tweetText } = await this.ai.llmManager.generateScheduledImagePost(
+        {
           timelineContext: timelineContext || undefined,
-        });
+        }
+      );
 
       // Track content generation
       await this.ai.eventService.createInteractionEvent("interaction.started", {
@@ -265,9 +266,6 @@ export class ScheduledPostManager {
         messageId: "",
         replyTo: "",
         hasMention: false,
-        imageGeneration: {
-          url: imageUrl,
-        },
         user: {
           id: "",
           metadata: { correlationId },
@@ -278,21 +276,11 @@ export class ScheduledPostManager {
       if (this.debug) {
         log.info("Debug mode enabled, skipping Twitter post");
         log.info("Tweet text:", tweetText);
-        log.info("Image URL:", imageUrl);
         return;
       }
 
       if (this.twitterClient) {
-        const imageBuffer = await this.downloadImage(imageUrl);
-
-        const tweet = await this.twitterClient.sendTweet(tweetText, {
-          media: [
-            {
-              data: imageBuffer,
-              type: "image/jpeg",
-            },
-          ],
-        });
+        const tweet = await this.twitterClient.sendTweet(tweetText, {});
 
         await this.ai.eventService.createInteractionEvent(
           "interaction.completed",
@@ -305,9 +293,6 @@ export class ScheduledPostManager {
             timestamp: new Date().toISOString(),
             messageId: "",
             replyTo: "",
-            imageGeneration: {
-              url: imageUrl,
-            },
             user: {
               id: "",
               metadata: { correlationId },
