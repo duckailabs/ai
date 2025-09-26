@@ -176,6 +176,13 @@
       "when": 1733407150184,
       "tag": "0024_watery_mandrill",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1758825684106,
+      "tag": "0025_mighty_jasper_sitwell",
+      "breakpoints": true
     }
   ]
 }

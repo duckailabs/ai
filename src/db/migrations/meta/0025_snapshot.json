@@ -1,0 +1,438 @@
+{
+  "id": "80894368-e521-4a8f-b71f-2eac7451b10c",
+  "prevId": "9bac917e-db89-4f96-9211-cd81dbd51855",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.characters": {
+      "name": "characters",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bio": {
+          "name": "bio",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "personality_traits": {
+          "name": "personality_traits",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "onchain": {
+          "name": "onchain",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "general_guidelines": {
+          "name": "general_guidelines",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'[]'::jsonb"
+        },
+        "quantum_personality": {
+          "name": "quantum_personality",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "identity": {
+          "name": "identity",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "response_styles": {
+          "name": "response_styles",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{\"default\":{\"tone\":[],\"personality\":[],\"guidelines\":[]},\"platforms\":{}}'::jsonb"
+        },
+        "styles": {
+          "name": "styles",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'{\"chat\":{\"rules\":[],\"examples\":[]},\"professional\":{\"rules\":[],\"examples\":[]},\"casual\":{\"rules\":[],\"examples\":[]}}'::jsonb"
+        },
+        "should_respond": {
+          "name": "should_respond",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "hobbies": {
+          "name": "hobbies",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'[]'::jsonb"
+        },
+        "belief_system": {
+          "name": "belief_system",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'[]'::jsonb"
+        },
+        "preferences": {
+          "name": "preferences",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'{\"preferredTopics\":[],\"dislikedTopics\":[],\"preferredTimes\":[],\"dislikedTimes\":[],\"preferredDays\":[],\"dislikedDays\":[],\"preferredHours\":[],\"dislikedHours\":[],\"generalLikes\":[],\"generalDislikes\":[]}'::jsonb"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.events": {
+      "name": "events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "character_id": {
+          "name": "character_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "interaction_event_type": {
+          "name": "interaction_event_type",
+          "type": "interaction_event_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'interaction.started'"
+        },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "processed": {
+          "name": "processed",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "events_character_id_characters_id_fk": {
+          "name": "events_character_id_characters_id_fk",
+          "tableFrom": "events",
+          "tableTo": "characters",
+          "columnsFrom": [
+            "character_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.twitter_mentions": {
+      "name": "twitter_mentions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tweet_id": {
+          "name": "tweet_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "author_id": {
+          "name": "author_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "author_username": {
+          "name": "author_username",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "character_id": {
+          "name": "character_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "processed_at": {
+          "name": "processed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "twitter_mention_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "skip_reason": {
+          "name": "skip_reason",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "response_tweet_id": {
+          "name": "response_tweet_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_reply": {
+          "name": "is_reply",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "is_retweet": {
+          "name": "is_retweet",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "conversation_id": {
+          "name": "conversation_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "metrics": {
+          "name": "metrics",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "twitter_mentions_character_id_characters_id_fk": {
+          "name": "twitter_mentions_character_id_characters_id_fk",
+          "tableFrom": "twitter_mentions",
+          "tableTo": "characters",
+          "columnsFrom": [
+            "character_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "twitter_mentions_tweet_id_unique": {
+          "name": "twitter_mentions_tweet_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tweet_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.conversation_style": {
+      "name": "conversation_style",
+      "schema": "public",
+      "values": [
+        "chat",
+        "post",
+        "friend",
+        "professional",
+        "casual",
+        "news",
+        "academic",
+        "technical",
+        "creative",
+        "formal",
+        "informal",
+        "adversarial",
+        "harsh"
+      ]
+    },
+    "public.interaction_event_type": {
+      "name": "interaction_event_type",
+      "schema": "public",
+      "values": [
+        "interaction.started",
+        "interaction.completed",
+        "interaction.failed",
+        "interaction.rate_limited",
+        "interaction.invalid",
+        "interaction.cancelled",
+        "interaction.processed",
+        "interaction.queued",
+        "image.generation.started",
+        "image.generation.completed",
+        "image.generation.failed",
+        "image.moderation.rejected"
+      ]
+    },
+    "public.memory_type": {
+      "name": "memory_type",
+      "schema": "public",
+      "values": [
+        "interaction",
+        "learning",
+        "achievement",
+        "hobby"
+      ]
+    },
+    "public.platform": {
+      "name": "platform",
+      "schema": "public",
+      "values": [
+        "twitter",
+        "discord",
+        "telegram",
+        "slack",
+        "api",
+        "system"
+      ]
+    },
+    "public.relationship_status": {
+      "name": "relationship_status",
+      "schema": "public",
+      "values": [
+        "friend",
+        "blocked",
+        "preferred",
+        "disliked",
+        "neutral"
+      ]
+    },
+    "public.response_type": {
+      "name": "response_type",
+      "schema": "public",
+      "values": [
+        "tweet_create",
+        "tweet_reply",
+        "tweet_thread",
+        "discord_chat",
+        "discord_mod",
+        "discord_help",
+        "discord_welcome",
+        "telegram_chat",
+        "telegram_group",
+        "telegram_broadcast",
+        "slack_chat",
+        "slack_thread",
+        "slack_channel",
+        "slack_dm"
+      ]
+    },
+    "public.twitter_mention_status": {
+      "name": "twitter_mention_status",
+      "schema": "public",
+      "values": [
+        "pending",
+        "processed",
+        "skipped",
+        "failed",
+        "rate_limited"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

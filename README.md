@@ -1,252 +1,83 @@
-# AI Character System
+# DuckAI Labs agent: @askduckai
 
-Master branch runs [@duckunfiltered](https://x.com/duckunfiltered) on X (Twitter).
+Code that runs the @askduckai agent on [X](https://x.com/askduckai).
 
-A flexible system for creating and managing AI characters with platform-specific response styles and personality traits.
+## Requirements
 
-## Features
+- Bun v1.1+
+- Postgres (reachable via `DATABASE_URL`)
+- Running Twitter listener/executor service (pointed to by `TWITTER_EXECUTOR_URL`)
 
-- Character creation and management
-- Platform-specific response formatting (Twitter, Discord)
-- Tool integration for real-time data
-- Multiple interaction modes
-- Personality and style injection
-- Memory management
-- Event tracking
+## Setup
 
-## Installation
+1. Install dependencies:
 
-```bash
-npm install
-# or
-bun install
-```
+   ```bash
+   bun install
+   ```
 
-Create a `.env` file with:
+2. Configure environment variables (`.env` or process env):
 
-```env
-DATABASE_URL=your_database_url
-OPENAI_API_KEY=your_openai_api_key
-```
+   ```env
+   DATABASE_URL=postgres://user:pass@host:5432/db
+   OPENPOND_BASE_URL=https://worker-host (default: http://localhost:3001)
+   OPENPOND_API_KEY=your-worker-api-key
+   OPENPOND_TEAM_ID=your-worker-team-id
+   OPENPOND_MODEL=openai:gpt-5-mini
+   OPENPOND_STREAM=true # optional, disable streaming with false
+   DEFAULT_CHARACTER_ID=uuid-of-character
+   TWITTER_AGENT_PORT=4000
+   TWITTER_EXECUTOR_URL=http://localhost:4100
+   TWITTER_BOT_SECRET=twitter-bot-secret
+   TWITTER_SCHEDULE_MESSAGE=optional scheduled prompt
+   TWITTER_SCHEDULE_CRON=optional cron (default 0 * * * *)
+   TELEGRAM_BOT_TOKEN=optional telegram bot token
+   TELEGRAM_CHARACTER_ID=optional override character id
+   TELEGRAM_CONVERSATION_PREFIX=optional conversation prefix
+   ```
 
-## Quick Start
+   - `TWITTER_BOT_SECRET` is used both to authorize the listener’s calls into this service and the API’s calls back to the listener. Set the same value on the listener.
 
-```typescript
-import { ai } from "../core/ai";
+3. Run database migrations (if not already applied):
 
-const assistant = new ai({
-  databaseUrl: process.env.DATABASE_URL!,
-  llmConfig: {
-    apiKey: process.env.OPENAI_API_KEY!,
-    llm: { model: "gpt-4-turbo-preview", temperature: 0.7 },
-    analyzer: { model: "gpt-3.5-turbo", temperature: 0.3 },
-  },
-});
-```
+   ```bash
+   bun run db:migrate
+   ```
 
-## Example Usage
+## Running
 
-### Character Management
+- Development (hot reload):
 
-```typescript
-// Find or create character
-const characters = await assistant.db
-  .select()
-  .from(schema.characters)
-  .where(eq(schema.characters.name, "Ducky"));
+  ```bash
+  bun run dev
+  ```
 
-let character;
-if (characters.length > 0) {
-  character = characters[0];
-} else {
-  const duckyConfig = await createDuckyCharacter();
-  character = await assistant.createCharacter(duckyConfig);
-}
-```
+- Single run:
 
-### Platform-Specific Responses
+  ```bash
+  bun index.ts
+  ```
 
-#### Twitter Interactions
+The server listens on `http://localhost:${TWITTER_AGENT_PORT}` (default 4000) and exposes:
 
-```typescript
-// Basic Tweet
-const twitterResponse = await assistant.interact(
-  {
-    system: "Create a thread analyzing BTC market conditions",
-    user: "Give me a spicy take on BTC price action",
-  },
-  {
-    characterId: character.id,
-    mode: "enhanced",
-    responseType: "tweet_thread",
-    tools: ["btc-price"],
-  }
-);
+- `POST /twitter/mention` – accepts a `TwitterMentionPayload`, records it, calls the worker, and forwards publishing to the listener.
 
-// Reply to Tweet
-const replyResponse = await assistant.interact(
-  {
-    system: "Reply with signature sass",
-    user: "Responding to: 'Just bought the dip! 🚀'",
-  },
-  {
-    characterId: character.id,
-    mode: "enhanced",
-    responseType: "reply",
-    platform: "twitter",
-  }
-);
-```
+Optional features:
 
-#### Discord Interactions
+- Scheduler: if `TWITTER_SCHEDULE_MESSAGE` is set, a cron job will send the prompt through the worker according to `TWITTER_SCHEDULE_CRON`.
+- Telegram relay: enabled when `TELEGRAM_BOT_TOKEN` is configured.
 
-```typescript
-// Technical Analysis
-const technicalAnalysis = await assistant.interact(
-  {
-    system: "Provide detailed technical analysis",
-    user: "Deep dive on BTC market structure",
-  },
-  {
-    characterId: character.id,
-    mode: "enhanced",
-    responseType: "technical_analysis",
-    platform: "discord",
-    tools: ["btc-price"],
-  }
-);
-
-// Alpha Calls
-const alphaCall = await assistant.interact(
-  {
-    system: "Share market alpha",
-    user: "What's your latest BTC alpha?",
-  },
-  {
-    characterId: character.id,
-    mode: "enhanced",
-    responseType: "alpha_calls",
-    platform: "discord",
-  }
-);
-
-// Meme Response
-const memeResponse = await assistant.interact(
-  {
-    system: "Create meme-worthy market commentary",
-    user: "Thoughts on leverage traders getting rekt?",
-  },
-  {
-    characterId: character.id,
-    responseType: "meme_response",
-    platform: "discord",
-  }
-);
-```
-
-### Different Interaction Modes
-
-```typescript
-// Raw Mode
-const rawResponse = await assistant.interact(
-  {
-    system: "You are a market analyst",
-    user: "Current BTC state?",
-  },
-  {
-    mode: "raw",
-    tools: ["btc-price"],
-  }
-);
-
-// Enhanced Mode
-const enhancedResponse = await assistant.interact(
-  {
-    system: "Analyze market conditions",
-    user: "Technical analysis please",
-  },
-  {
-    characterId: character.id,
-    mode: "enhanced",
-    responseType: "technical_analysis",
-  }
-);
-
-// Mixed Mode with Custom Injection
-const mixedResponse = await assistant.interact(
-  {
-    system: "Analyze market sentiment",
-    user: "Unfiltered market thoughts?",
-  },
-  {
-    characterId: character.id,
-    mode: "mixed",
-    platform: "discord",
-    responseType: "general_chat",
-    injections: {
-      injectPersonality: true,
-      injectStyle: false,
-      customInjections: [
-        {
-          name: "market_sentiment",
-          content: "You're feeling bearish but hiding it",
-          position: "before",
-        },
-      ],
-    },
-    tools: ["btc-price"],
-  }
-);
-```
-
-## Response Types
-
-### Twitter
-
-- `tweet_thread`: Multi-tweet analysis (max 280 chars each)
-- `reply`: Single tweet responses
-
-### Discord
-
-- `general_chat`: Casual conversation (max 1000 chars)
-- `technical_analysis`: Detailed market analysis
-- `alpha_calls`: Trading insights and calls
-- `meme_response`: Meme-worthy commentary
-
-## Character Configuration
-
-Characters can be configured with:
-
-- Base traits and personality
-- Platform-specific response styles
-- Formatting rules
-- Interaction guidelines
-
-See `createDuckyCharacter()` for a complete example of character configuration.
-
-## Tools Integration
-
-Tools can be used to fetch real-time data:
-
-```typescript
-const response = await assistant.interact(input, {
-  tools: ["btc-price"],
-  toolContext: {
-    /* optional context */
-  },
-});
-```
-
-## Development
+## Verifying
 
 ```bash
-# Run tests
-bun test
-
-# Run example
-bun run example/index.ts
+bun run typecheck
 ```
 
-## License
+Send a sample mention (with the correct bearer token) to verify end-to-end:
 
-MIT
+```bash
+curl -X POST http://localhost:4000/twitter/mention \
+  -H "Authorization: Bearer $TWITTER_BOT_SECRET" \
+  -H "Content-Type: application/json" \
+  -d @payload.json
+```
