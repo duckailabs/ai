@@ -1,14 +1,14 @@
 {
-  "name": "@fatduckai/ai",
+  "name": "@duckailabs/ai",
   "private": false,
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/",
-    "scope": "@fatduckai"
+    "scope": "@duckailabs"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/fatduckai/ai.git"
+    "url": "https://github.com/duckailabs/ai.git"
   },
   "scripts": {
     "build": "bun run build:clean && bun run build:js && bun run build:types",
@@ -32,42 +32,8 @@
   },
   "version": "1.0.0",
   "type": "module",
-  "tsx": {
-    "nodeModules": [
-      "crypto",
-      "path",
-      "fs",
-      "os",
-      "util",
-      "events",
-      "stream",
-      "buffer",
-      "querystring",
-      "url",
-      "http",
-      "https",
-      "net",
-      "tls",
-      "zlib"
-    ]
-  },
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
-    }
-  },
-  "keywords": [
-    "prompt-engineering",
-    "llm",
-    "ai",
-    "template"
-  ],
-  "author": "Fat Duck AI",
+  "main": "index.ts",
+  "author": "DuckAI Labs",
   "license": "MIT",
   "dependencies": {
     "dotenv": "^16.4.5",
